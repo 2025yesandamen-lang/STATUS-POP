@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Check, ShieldCheck, Zap, Sparkles } from 'lucide-react';
 import { UserPlan } from '../../types/index.ts';
-import { updateVendorPlan, recordAnalyticsEvent } from '../../lib/storage.ts';
+import { recordAnalyticsEvent } from '../../lib/storage.ts';
 import { BottomSheet } from '../ui/BottomSheet.tsx';
 import { Button } from '../ui/Button.tsx';
 import { useToast } from '../ui/Toast.tsx';
@@ -37,25 +37,18 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         }),
       });
 
-      // Simulation / Paystack redirect
-      setTimeout(() => {
-        const updated = updateVendorPlan(
-          selectedPlan,
-          selectedPlan === 'day_pass' ? 24 : 720
-        );
-        onPlanUpdated(updated.plan);
-        setIsProcessing(false);
-        onClose();
-        recordAnalyticsEvent('paid', { plan: selectedPlan });
-        showToast(
-          selectedPlan === 'day_pass' ? 'Day Pass Activated! (24 Hours)' : 'Pro Plan Activated!',
-          'Watermark removed sharp sharp! Enjoy premium sales flyers.',
-          'success'
-        );
-      }, 1200);
-    } catch (e) {
+      const checkout = await response.json();
+      if (!response.ok || !checkout.data?.authorization_url) {
+        throw new Error(checkout.message || 'Online payments are not available yet.');
+      }
+      window.location.assign(checkout.data.authorization_url);
+    } catch (error) {
       setIsProcessing(false);
-      showToast('Payment Cancelled', 'Please check your connection and try again.', 'error');
+      showToast(
+        'Payment unavailable',
+        error instanceof Error ? error.message : 'Please try again later.',
+        'error'
+      );
     }
   };
 
@@ -169,10 +162,10 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           </div>
         </div>
 
-        {/* Security / Paystack note */}
+        {/* Payment availability */}
         <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400 pt-1">
           <ShieldCheck className="w-4 h-4 text-[#0B6B3A]" />
-          <span>Secured by Paystack • Cards, Bank Transfer & USSD accepted</span>
+          <span>Online payments are currently unavailable.</span>
         </div>
 
         {/* Checkout Button */}
@@ -182,10 +175,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           size="lg"
           fullWidth
           isLoading={isProcessing}
+          disabled
           onClick={handlePaystackCheckout}
           leftIcon={<Zap className="w-5 h-5 text-[#FFC93C]" />}
         >
-          Pay {selectedPlan === 'day_pass' ? '₦500' : '₦2,500'} via Paystack
+          Payment setup required
         </Button>
       </div>
     </BottomSheet>

@@ -6,15 +6,9 @@ import {
   Phone,
   ArrowLeft,
   CheckCircle2,
-  PackageCheck,
-  CreditCard,
-  Building2,
-  ShieldCheck,
-  ExternalLink,
 } from 'lucide-react';
 import { ProductItem, VendorProfile } from '../../types/index.ts';
 import { formatNaira, formatWhatsAppPhone, formatDisplayPhone } from '../../lib/format.ts';
-import { createOrder } from '../../lib/storage.ts';
 import { Button } from '../ui/Button.tsx';
 import { BottomSheet } from '../ui/BottomSheet.tsx';
 import { useToast } from '../ui/Toast.tsx';
@@ -38,18 +32,15 @@ export const PublicShop: React.FC<PublicShopProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<'whatsapp' | 'paystack_split'>('paystack_split');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
-  const [payUrl, setPayUrl] = useState<string | null>(null);
+  const [orderSent, setOrderSent] = useState(false);
 
   const publishedProducts = products.filter((p) => p.isPublished);
 
   const handleOpenOrderSheet = (product: ProductItem) => {
     setSelectedProduct(product);
     setQuantity(1);
-    setOrderSuccess(null);
-    setPayUrl(null);
+    setOrderSent(false);
   };
 
   const handleDirectWhatsAppOrder = (product: ProductItem) => {
@@ -71,84 +62,20 @@ export const PublicShop: React.FC<PublicShopProps> = ({
     }
 
     setIsSubmitting(true);
-    try {
-      const totalAmount = selectedProduct.price * quantity;
-      const order = createOrder({
-        vendorId: vendor.id,
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
-        customerAddress: customerAddress.trim() || 'Pickup / Arrange on WhatsApp',
-        items: [
-          {
-            id: `item_${Date.now()}`,
-            productId: selectedProduct.id,
-            productName: selectedProduct.name,
-            price: selectedProduct.price,
-            quantity: quantity,
-            image: selectedProduct.image,
-          },
-        ],
-        totalAmount,
-        status: paymentMethod === 'paystack_split' ? 'confirmed' : 'pending',
-      });
-
-      // If user selected Paystack Direct Split payment
-      if (paymentMethod === 'paystack_split') {
-        const checkoutRes = await fetch('/api/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: totalAmount,
-            plan: 'customer_order',
-            email: `${customerPhone.replace(/\D/g, '')}@statuspop.ng`,
-            subaccount: vendor.paystackSubaccountCode,
-            vendorBusinessName: vendor.businessName,
-            settlementBank: vendor.bankName,
-            accountNumber: vendor.accountNumber,
-            orderId: order.orderNumber,
-          }),
-        });
-
-        if (checkoutRes.ok) {
-          const checkData = await checkoutRes.json();
-          if (checkData.data?.authorization_url) {
-            setPayUrl(checkData.data.authorization_url);
-            setOrderSuccess(order.orderNumber);
-            setIsSubmitting(false);
-            showToast(
-              'Order Created!',
-              `Proceeding to Paystack. Payout settles directly into ${vendor.businessName}'s ${vendor.bankName || 'bank'} account.`,
-              'success'
-            );
-            return;
-          }
-        }
-      }
-
-      setIsSubmitting(false);
-      setOrderSuccess(order.orderNumber);
-
-      // Open WhatsApp with order summary for vendor
-      const phone = formatWhatsAppPhone(vendor.whatsappNumber || vendor.phone);
-      const text = encodeURIComponent(
-        `*NEW ORDER: #${order.orderNumber}*\n` +
-          `Customer: ${customerName}\n` +
-          `Phone: ${customerPhone}\n` +
-          `Item: ${selectedProduct.name} (x${quantity})\n` +
-          `Total: ${formatNaira(totalAmount)}\n` +
-          `Payment: Direct WhatsApp / Pay on Delivery\n` +
-          `Address: ${customerAddress || 'Direct Delivery'}\n\n` +
-          `Kindly confirm availability & delivery time!`
-      );
-
-      showToast('Order Placed!', `Order #${order.orderNumber} sent to vendor.`, 'success');
-      setTimeout(() => {
-        window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
-      }, 1000);
-    } catch (e) {
-      setIsSubmitting(false);
-      showToast('Error', 'Could not submit order, please message vendor directly.', 'error');
-    }
+    const totalAmount = selectedProduct.price * quantity;
+    const phone = formatWhatsAppPhone(vendor.whatsappNumber || vendor.phone);
+    const text = encodeURIComponent(
+      `Hello ${vendor.businessName}, I would like to order:\n` +
+      `${selectedProduct.name} x${quantity}\n` +
+      `Total: ${formatNaira(totalAmount)}\n` +
+      `Name: ${customerName.trim()}\nPhone: ${customerPhone.trim()}\n` +
+      `Address: ${customerAddress.trim() || 'Pickup / arrange with vendor'}\n` +
+      'Please confirm availability and payment details.'
+    );
+    window.open(`https://wa.me/${phone}?text=${text}`, '_blank', 'noopener,noreferrer');
+    setOrderSent(true);
+    setIsSubmitting(false);
+    showToast('WhatsApp opened', 'Your order message is ready to send to the vendor.', 'success');
   };
 
   return (
@@ -168,7 +95,7 @@ export const PublicShop: React.FC<PublicShopProps> = ({
           <div className="flex items-start justify-between gap-4">
             <div>
               <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#FFC93C] text-[#111827] text-[10px] font-black uppercase tracking-wider mb-2">
-                VERIFIED NAIJA VENDOR
+                VENDOR SHOP
               </span>
               <h1 className="text-2xl font-black tracking-tight">{vendor.businessName}</h1>
               {vendor.bio && (
@@ -185,11 +112,6 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                   <Phone className="w-3.5 h-3.5 text-[#FFC93C]" />{' '}
                   {formatDisplayPhone(vendor.phone)}
                 </span>
-                {vendor.bankName && (
-                  <span className="flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-md text-[11px] font-semibold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#FFC93C]" /> Direct Bank Split: {vendor.bankName}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -296,35 +218,19 @@ export const PublicShop: React.FC<PublicShopProps> = ({
           onClose={() => setSelectedProduct(null)}
           title={`Order: ${selectedProduct.name}`}
         >
-          {orderSuccess ? (
+          {orderSent ? (
             <div className="text-center py-6 space-y-4">
               <div className="w-16 h-16 rounded-full bg-green-100 text-[#0B6B3A] flex items-center justify-center mx-auto shadow-sm">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <div>
                 <h3 className="font-black text-lg text-gray-900 dark:text-white">
-                  Order #{orderSuccess} Placed!
+                  Order message prepared
                 </h3>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed max-w-sm mx-auto">
-                  {payUrl
-                    ? `Payment splits straight into ${vendor.businessName}'s ${vendor.bankName || 'bank'} account. Click below to complete checkout.`
-                    : `We forwarded your order details to ${vendor.businessName} via WhatsApp. They will reply shortly!`}
+                  Your message was opened in WhatsApp. The vendor must confirm the order and payment directly.
                 </p>
               </div>
-
-              {payUrl && (
-                <Button
-                  type="button"
-                  variant="primary"
-                  fullWidth
-                  size="lg"
-                  onClick={() => window.open(payUrl, '_blank')}
-                  leftIcon={<CreditCard className="w-5 h-5" />}
-                  className="font-black text-sm shadow-md"
-                >
-                  Pay with Paystack (Card / USSD / OPay) →
-                </Button>
-              )}
 
               <Button
                 type="button"
@@ -372,56 +278,7 @@ export const PublicShop: React.FC<PublicShopProps> = ({
                 </div>
               </div>
 
-              {/* Payment Method Choice (Paystack Direct Split vs WhatsApp) */}
-              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-2">
-                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 block">
-                  Choose Payment Method:
-                </span>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('paystack_split')}
-                    className={`p-2.5 rounded-xl border-2 text-left transition-all ${
-                      paymentMethod === 'paystack_split'
-                        ? 'border-[#0B6B3A] bg-emerald-50/60 dark:bg-emerald-950/30 text-[#0B6B3A] dark:text-emerald-300 font-bold shadow-xs'
-                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-black text-xs">
-                      <CreditCard className="w-3.5 h-3.5 text-[#FF5A36]" />
-                      <span>⚡ Pay Online</span>
-                    </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Card, USSD, OPay, Bank Transfer
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('whatsapp')}
-                    className={`p-2.5 rounded-xl border-2 text-left transition-all ${
-                      paymentMethod === 'whatsapp'
-                        ? 'border-[#0B6B3A] bg-emerald-50/60 dark:bg-emerald-950/30 text-[#0B6B3A] dark:text-emerald-300 font-bold shadow-xs'
-                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-black text-xs">
-                      <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                      <span>💬 WhatsApp Pay</span>
-                    </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Pay on Delivery / Direct Transfer
-                    </p>
-                  </button>
-                </div>
-
-                {paymentMethod === 'paystack_split' && (
-                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 pt-0.5">
-                    <ShieldCheck className="w-3 h-3 shrink-0" />
-                    Funds deposit straight into {vendor.businessName}'s {vendor.bankName || 'bank'} account.
-                  </p>
-                )}
-              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">No online payment is collected here. Confirm price, availability, delivery, and payment directly with the vendor.</p>
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
@@ -466,22 +323,16 @@ export const PublicShop: React.FC<PublicShopProps> = ({
 
               <Button
                 type="submit"
-                variant={paymentMethod === 'paystack_split' ? 'primary' : 'whatsapp'}
+                variant="whatsapp"
                 size="lg"
                 fullWidth
                 isLoading={isSubmitting}
                 leftIcon={
-                  paymentMethod === 'paystack_split' ? (
-                    <CreditCard className="w-5 h-5" />
-                  ) : (
-                    <MessageCircle className="w-5 h-5" />
-                  )
+                  <MessageCircle className="w-5 h-5" />
                 }
                 className="font-black"
               >
-                {paymentMethod === 'paystack_split'
-                  ? `Pay ${formatNaira(selectedProduct.price * quantity)} Online (Direct Split)`
-                  : 'Send Order to Vendor on WhatsApp'}
+                Send Order to Vendor on WhatsApp
               </Button>
             </form>
           )}

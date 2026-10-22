@@ -26,7 +26,8 @@ export interface HomePageProps {
   onOpenPricing: () => void;
   onOpenTemplates: () => void;
   onOpenShop: () => void;
-  onOpenAdmin: () => void;
+  onOpenAdmin?: () => void;
+  showAdmin?: boolean;
   onOpenPhoneLock: () => void;
   onOpenEvents: () => void;
   onOpenDP?: () => void;
@@ -49,6 +50,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenTemplates,
   onOpenShop,
   onOpenAdmin,
+  showAdmin = true,
   onOpenPhoneLock,
   onOpenEvents,
   onOpenDP,
@@ -476,15 +478,15 @@ export const HomePage: React.FC<HomePageProps> = ({
             </button>
           </div>
 
-          <div>
+          {showAdmin && onOpenAdmin && <div>
             <button
               onClick={onOpenAdmin}
               className="px-3 py-1.5 rounded-lg bg-[#0B6B3A] text-white text-[11px] font-bold hover:bg-[#064E2B] transition-colors flex items-center gap-1.5 shadow-xs"
             >
               <Lock className="w-3 h-3" />
-              <span>Admin Dashboard (Passcode: admin)</span>
+              <span>Admin Dashboard</span>
             </button>
-          </div>
+          </div>}
         </div>
       </footer>
     </div>

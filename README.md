@@ -68,12 +68,21 @@ Vendors don't need to type lengthy product details on small phone keyboards:
 npm install
 ```
 
-### 2. Configure Environment (Optional)
+### 2. Configure Environment
 Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
-Add your free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) or Groq key from [Groq Console](https://console.groq.com/). *(The app works completely even without API keys!)*
+Add optional AI provider keys from [Google AI Studio](https://aistudio.google.com/) or [Groq Console](https://console.groq.com/). Keep all secrets in a local `.env` file or your hosting provider's secret manager. Never commit `.env`.
+
+For administrator access, configure `ADMIN_PASSWORD` (at least 12 characters) and `SESSION_SECRET` (at least 32 characters) in the hosting secret manager. Generate a signing secret with:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Admin login is server-verified, rate-limited, and uses an expiring HttpOnly cookie. The admin page reports that its data store is unavailable until a persistent database is integrated. It does not show sample CRM, order, or payment records.
+
+Online payments, bank resolution, and subaccount creation are disabled. Do not enable payments until real server-side order and entitlement persistence, Paystack callback verification, and signed webhook reconciliation are implemented and tested. The current app has no database, so it cannot reliably fulfill those requirements.
 
 ### 3. Run Development Server
 ```bash
@@ -93,4 +102,4 @@ npm start
 - **15 Sector Templates**: Auto Mechanics, Artisans & Plumbers, Church & Ministries, Thrift Multi-Grids, Barbers & Salons, Boutique Fashion, Tech Gadgets.
 - **WhatsApp DP Creator**: Dedicated square profile picture generator with business badges, services, and phone number.
 - **Special Holiday Flyers**: Independence Day, Christmas, New Year, Easter, Eid, and Customer Appreciation cards.
-- **Paystack Integration**: Built-in ₦500 Day Pass and ₦2,500 Pro checkout simulation.
+- **Online payments**: Disabled until persistent order/entitlement storage and verified Paystack webhooks are available. Shop orders use a direct WhatsApp handoff and are not stored by this app.

@@ -54,6 +54,23 @@
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
   }
 }
 
@@ -73,6 +90,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 /* Naira symbol styling */

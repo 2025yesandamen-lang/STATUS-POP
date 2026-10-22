@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Camera,
@@ -73,17 +73,17 @@ import { Button } from './components/ui/Button.tsx';
 import { Card } from './components/ui/Card.tsx';
 import { Stepper, Step } from './components/ui/Stepper.tsx';
 import { ToastProvider, useToast } from './components/ui/Toast.tsx';
-import { FlyerCanvas } from './components/editor/FlyerCanvas.tsx';
 import { CopyPanel } from './components/editor/CopyPanel.tsx';
 import { ExportBar } from './components/editor/ExportBar.tsx';
-import { PricingModal } from './components/pricing/PricingModal.tsx';
-import { PublicShop } from './components/shop/PublicShop.tsx';
-import { AdminDashboard } from './components/admin/AdminDashboard.tsx';
-import { TemplateBrowser } from './components/dev/TemplateBrowser.tsx';
+const FlyerCanvas = lazy(() => import('./components/editor/FlyerCanvas.tsx').then((module) => ({ default: module.FlyerCanvas })));
+const PricingModal = lazy(() => import('./components/pricing/PricingModal.tsx').then((module) => ({ default: module.PricingModal })));
+const PublicShop = lazy(() => import('./components/shop/PublicShop.tsx').then((module) => ({ default: module.PublicShop })));
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard.tsx').then((module) => ({ default: module.AdminDashboard })));
+const TemplateBrowser = lazy(() => import('./components/dev/TemplateBrowser.tsx').then((module) => ({ default: module.TemplateBrowser })));
 import { PhoneLockModal } from './components/vendor/PhoneLockModal.tsx';
 import { HomePage } from './components/home/HomePage.tsx';
-import { SpecialEventsPage } from './components/events/SpecialEventsPage.tsx';
-import { WhatsAppDPGenerator } from './components/dp/WhatsAppDPGenerator.tsx';
+const SpecialEventsPage = lazy(() => import('./components/events/SpecialEventsPage.tsx').then((module) => ({ default: module.SpecialEventsPage })));
+const WhatsAppDPGenerator = lazy(() => import('./components/dp/WhatsAppDPGenerator.tsx').then((module) => ({ default: module.WhatsAppDPGenerator })));
 import { MiniProfileExplainerModal } from './components/vendor/MiniProfileExplainerModal.tsx';
 
 const STEPS: Step[] = [
@@ -553,7 +553,7 @@ function MainContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF9EC] dark:bg-[#0F1318] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans">
+    <div className="min-h-screen min-h-[100dvh] bg-[#FFF9EC] dark:bg-[#0F1318] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans">
       {/* Top Navbar matching the reference design */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#1A202C]/95 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -659,7 +659,7 @@ function MainContent() {
               <Store className="w-4 h-4 text-[#0B6B3A]" />
             </button>
 
-            {/* Admin Command Center */}
+            {/* Local demo dashboard only; production admin access requires server authentication. */}
             <button
               onClick={() => setCurrentView(currentView === 'admin' ? 'home' : 'admin')}
               className={`tap-target p-2 rounded-xl border transition-colors ${
@@ -676,6 +676,7 @@ function MainContent() {
       </header>
 
       {/* Main View Router */}
+      <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center p-6 text-sm text-gray-500" role="status">Loading…</div>}>
       {currentView === 'home' ? (
         <HomePage
           userPlan={vendor.plan}
@@ -683,6 +684,7 @@ function MainContent() {
           onOpenPricing={() => setIsPricingOpen(true)}
           onOpenTemplates={() => setCurrentView('dev_templates')}
           onOpenShop={() => setCurrentView('shop')}
+          showAdmin
           onOpenAdmin={() => setCurrentView('admin')}
           onOpenPhoneLock={() => setIsPhoneLockOpen(true)}
           onOpenEvents={() => setCurrentView('events')}
@@ -1571,14 +1573,15 @@ function MainContent() {
           </div>
         </main>
       )}
+      </Suspense>
 
       {/* Paystack Upgrade BottomSheet */}
-      <PricingModal
+      <Suspense fallback={null}><PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
         currentPlan={vendor.plan}
         onPlanUpdated={(plan) => setVendor(getVendorProfile())}
-      />
+      /></Suspense>
 
       {/* Phone Lock Account Modal */}
       <PhoneLockModal

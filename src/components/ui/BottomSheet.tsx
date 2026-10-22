@@ -14,7 +14,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onClose,
   title,
   children,
-  maxHeight = 'max-h-[90vh]',
+  maxHeight = 'max-h-[90dvh] max-h-[90vh]',
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -30,7 +30,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 pb-[env(safe-area-inset-bottom)] backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div
         className="fixed inset-0"
         onClick={onClose}

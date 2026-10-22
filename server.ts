@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { GoogleGenAI, Type } from '@google/genai';
 
 dotenv.config();
@@ -11,6 +12,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = parseInt(process.env.PORT || '3000', 10);
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
+const ADMIN_SESSION_COOKIE = 'statuspop_admin_session';
+const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const adminAuthConfigured = ADMIN_PASSWORD.length >= 12 && SESSION_SECRET.length >= 32;
 
 // Increased limit for high-res mobile photos
 app.use(express.json({ limit: '20mb' }));
@@ -23,6 +29,96 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
+});
+
+function getCookie(req: Request, name: string): string | null {
+  const cookies = req.headers.cookie?.split(';') || [];
+  const entry = cookies.map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  return entry ? decodeURIComponent(entry.slice(name.length + 1)) : null;
+}
+
+function signSession(payload: string): string {
+  return createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+}
+
+function hasAdminSession(req: Request): boolean {
+  if (!adminAuthConfigured) return false;
+  const token = getCookie(req, ADMIN_SESSION_COOKIE);
+  if (!token) return false;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return false;
+  const expected = signSession(payload);
+  const receivedBytes = Buffer.from(signature);
+  const expectedBytes = Buffer.from(expected);
+  if (receivedBytes.length !== expectedBytes.length || !timingSafeEqual(receivedBytes, expectedBytes)) return false;
+  try {
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: number; nonce?: string };
+    return typeof session.exp === 'number' && session.exp > Date.now() && typeof session.nonce === 'string';
+  } catch {
+    return false;
+  }
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!hasAdminSession(req)) {
+    res.status(adminAuthConfigured ? 401 : 503).json({
+      error: adminAuthConfigured ? 'unauthorized' : 'admin_auth_not_configured',
+      message: adminAuthConfigured ? 'Administrator sign-in required.' : 'Admin authentication is not configured.',
+    });
+    return;
+  }
+  next();
+}
+
+function setAdminSessionCookie(res: Response, value: string, maxAge: number): void {
+  res.cookie(ADMIN_SESSION_COOKIE, value, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge,
+  });
+}
+
+app.post('/api/admin/login', (req: Request, res: Response) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(`admin:${ip}`, 5, 15 * 60 * 1000)) {
+    res.status(429).json({ message: 'Too many sign-in attempts. Try again in 15 minutes.' });
+    return;
+  }
+  if (!adminAuthConfigured) {
+    res.status(503).json({ message: 'Admin sign-in is not configured on this server.' });
+    return;
+  }
+
+  const suppliedPassword = typeof req.body?.password === 'string' ? req.body.password : '';
+  const suppliedHash = createHmac('sha256', SESSION_SECRET).update(suppliedPassword).digest();
+  const expectedHash = createHmac('sha256', SESSION_SECRET).update(ADMIN_PASSWORD).digest();
+  if (!timingSafeEqual(suppliedHash, expectedHash)) {
+    res.status(401).json({ message: 'Incorrect password.' });
+    return;
+  }
+
+  const payload = Buffer.from(JSON.stringify({ exp: Date.now() + ADMIN_SESSION_TTL_SECONDS * 1000, nonce: randomBytes(16).toString('hex') })).toString('base64url');
+  setAdminSessionCookie(res, `${payload}.${signSession(payload)}`, ADMIN_SESSION_TTL_SECONDS * 1000);
+  res.json({ authenticated: true, dataStoreConfigured: false, paymentsConfigured: false });
+});
+
+app.get('/api/admin/session', (req: Request, res: Response) => {
+  if (!adminAuthConfigured) {
+    res.status(503).json({ error: 'admin_auth_not_configured', message: 'Admin sign-in is not configured on this server.' });
+    return;
+  }
+  res.json({ authenticated: hasAdminSession(req), dataStoreConfigured: false, paymentsConfigured: false });
+});
+
+app.post('/api/admin/logout', (_req: Request, res: Response) => {
+  setAdminSessionCookie(res, '', 0);
+  res.status(204).end();
+});
+
+app.get('/api/admin/status', requireAdmin, (_req: Request, res: Response) => {
+  res.json({ dataStoreConfigured: false, paymentsConfigured: false });
 });
 
 // 2. Shared Google Gemini Client
@@ -693,134 +789,29 @@ app.get('/api/paystack/banks', (_req: Request, res: Response) => {
 });
 
 app.post('/api/paystack/resolve-account', async (req: Request, res: Response) => {
-  const { account_number, bank_code } = req.body;
-  const paystackKey = process.env.PAYSTACK_SECRET_KEY;
-
-  if (!account_number || !bank_code) {
-    res.status(400).json({ status: false, message: 'Account number and bank code required' });
-    return;
-  }
-
-  if (paystackKey && !paystackKey.includes('xxxxxxxx')) {
-    try {
-      const response = await fetch(
-        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(account_number)}&bank_code=${encodeURIComponent(bank_code)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${paystackKey}`,
-          },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        res.json(data);
-        return;
-      }
-    } catch (e) {
-      console.warn('Paystack live bank resolve error:', e);
-    }
-  }
-
-  // Simulated account resolution for test keys / offline
-  const bank = NIGERIAN_BANKS_SERVER.find((b) => b.code === bank_code);
-  const sampleNames = [
-    'CHIDI OKAFOR ENTERPRISES',
-    'LADIPO AUTO CLINIC NIG LTD',
-    'SAMMY COOLING ELECTRICALS',
-    'IYABO KITCHEN & GRILLS',
-    'BALOGUN STYLES VENTURES',
-  ];
-  const idx = Math.abs(account_number.split('').reduce((a: number, b: string) => a + Number(b), 0)) % sampleNames.length;
-  res.json({
-    status: true,
-    message: 'Account resolved successfully',
-    data: {
-      account_number,
-      account_name: `${sampleNames[idx]}`,
-      bank_id: bank?.code || bank_code,
-      bank_name: bank?.name || 'Verified Nigerian Bank',
-    },
+  void req;
+  res.status(503).json({
+    status: false,
+    error: 'account_verification_unavailable',
+    message: 'Live account verification is unavailable. No account was verified.',
   });
 });
 
 app.post('/api/paystack/create-subaccount', async (req: Request, res: Response) => {
-  const { business_name, settlement_bank, account_number, percentage_charge = 0 } = req.body;
-  const paystackKey = process.env.PAYSTACK_SECRET_KEY;
-
-  if (paystackKey && !paystackKey.includes('xxxxxxxx')) {
-    try {
-      const response = await fetch('https://api.paystack.co/subaccount', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${paystackKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          business_name,
-          settlement_bank,
-          account_number,
-          percentage_charge,
-        }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        res.json(data);
-        return;
-      }
-    } catch (e) {
-      console.warn('Paystack live subaccount creation error:', e);
-    }
-  }
-
-  // Verified subaccount simulation
-  const randomSuffix = Math.floor(100000 + Math.random() * 900000);
-  res.json({
-    status: true,
-    message: 'Subaccount created successfully for direct split payments',
-    data: {
-      subaccount_code: `ACCT_${settlement_bank}_${randomSuffix}`,
-      business_name,
-      settlement_bank,
-      account_number,
-      percentage_charge,
-      settlement_schedule: 'T+1 (Direct to Bank Account)',
-    },
+  void req;
+  res.status(503).json({
+    status: false,
+    error: 'subaccount_creation_unavailable',
+    message: 'Live subaccount creation is unavailable. No subaccount was created.',
   });
 });
 
 // 6. Paystack Checkout Endpoint with Direct Split Payments
 app.post('/api/checkout', (req: Request, res: Response) => {
-  const {
-    plan,
-    amount,
-    email = 'vendor@statuspop.ng',
-    subaccount,
-    orderId,
-    vendorBusinessName,
-    settlementBank,
-    accountNumber,
-  } = req.body;
-  const reference = `PAY_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-
-  res.json({
-    status: 'success',
-    data: {
-      authorization_url: `https://checkout.paystack.com/${reference}`,
-      access_code: reference,
-      reference,
-      plan,
-      amount,
-      email,
-      subaccount: subaccount || undefined,
-      splitSettlement: subaccount
-        ? {
-            vendorAccount: accountNumber || 'Verified Vendor Bank',
-            settlementBank: settlementBank || 'Direct Bank Settlement',
-            payoutSchedule: 'Instant / Next Day Payout to Vendor',
-          }
-        : null,
-      orderId: orderId || undefined,
-    },
+  res.status(503).json({
+    status: 'unavailable',
+    error: 'payments_not_configured',
+    message: 'Online payments are not available yet. No payment was taken.',
   });
 });
 
@@ -849,6 +840,10 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     error: 'internal_server_error',
     message: 'StatusPop server encountered an issue. Fallback active.',
   });
+});
+
+app.use('/api', (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'not_found', message: 'API endpoint not found.' });
 });
 
 // Process Level Hardening
