@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-green-700: #0B6B3A;
+    --color-green-900: #064E2B;
+    --color-yellow-400: #FFC93C;
+    --color-coral-500: #FF5A36;
+    --color-cream-50: #FFF9EC;
+    --color-ink-900: #111827;
+    --color-ink-800: #1F2937;
+    --color-ink-600: #4B5563;
+    --color-ink-400: #9CA3AF;
+    --color-ink-100: #F3F4F6;
+    --color-whatsapp: #25D366;
+    --color-whatsapp-dark: #128C7E;
+    --color-bg-primary: #FFF9EC;
+    --color-bg-card: #FFFFFF;
+    --color-bg-elevated: #FFFFFF;
+    --color-border: #E5E7EB;
+    --color-text-main: #111827;
+    --color-text-muted: #4B5563;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-green-700: #128247;
+      --color-green-900: #0B4A28;
+      --color-yellow-400: #FFD45E;
+      --color-coral-500: #FF6E4E;
+      --color-cream-50: #14171A;
+      --color-ink-900: #F9FAFB;
+      --color-ink-800: #E5E7EB;
+      --color-ink-600: #9CA3AF;
+      --color-ink-400: #6B7280;
+      --color-ink-100: #1F2937;
+      --color-whatsapp: #25D366;
+      --color-whatsapp-dark: #128C7E;
+      --color-bg-primary: #0F1318;
+      --color-bg-card: #1A202C;
+      --color-bg-elevated: #242B38;
+      --color-border: #2D3748;
+      --color-text-main: #F9FAFB;
+      --color-text-muted: #9CA3AF;
+    }
+  }
+
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom font utilities for flyer text */
+.font-anton { font-family: 'Anton', impact, sans-serif; }
+.font-bebas { font-family: 'Bebas Neue', 'Arial Narrow', sans-serif; }
+.font-playfair { font-family: 'Playfair Display', Georgia, serif; }
+.font-pacifico { font-family: 'Pacifico', cursive; }
+.font-poppins { font-family: 'Poppins', sans-serif; }
+.font-montserrat { font-family: 'Montserrat', sans-serif; }
+.font-inter { font-family: 'Inter', sans-serif; }
+
+/* Mobile tap target utility (minimum 48px) */
+.tap-target {
+  min-height: 48px;
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Naira symbol styling */
+.naira-sign {
+  font-family: system-ui, -apple-system, 'Inter', sans-serif;
+  font-weight: 700;
+}

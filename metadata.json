@@ -1,0 +1,6 @@
+{
+  "name": "StatusPop",
+  "description": "Mobile-first sales, flyer creator, and mini-store platform for Nigerian vendors to turn product photos into WhatsApp status flyers and orders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

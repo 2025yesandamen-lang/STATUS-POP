@@ -1,0 +1,632 @@
+# MASTER DEVELOPMENT PROMPT: EVOLVE STATUSPOP INTO A SMALL-BUSINESS SALES & GROWTH PLATFORM
+
+## 1. YOUR ROLE
+
+Act as my senior full-stack engineer, software architect, product strategist, database engineer, security reviewer, and QA engineer.
+
+We are evolving **StatusPop**, an existing mobile-first application for Nigerian small-business vendors, into a reliable platform that helps vendors create promotions, showcase products, receive orders, attract customers, track sales, and encourage repeat purchases.
+
+Your responsibility is to extend the application without destroying, replacing, scattering, or unnecessarily refactoring the work that already exists.
+
+**This is an incremental enhancement project, NOT a rewrite.**
+
+Think carefully before changing code. Inspect the existing application, understand its architecture, reuse its components, and implement features in small, testable stages.
+
+## 2. THE PRODUCT VISION
+
+StatusPop should help a small vendor complete this journey:
+
+**Create → Publish → Attract → Convert → Measure → Retain → Grow**
+
+The long-term mission is to make useful digital business tools affordable and accessible to Nigerian small businesses, including vendors who have only a smartphone, a small customer base, limited technical knowledge, and limited marketing budgets.
+
+Do not focus only on generating attractive flyers. Help vendors move from promotional content to measurable business outcomes.
+
+Every new feature must answer at least one question:
+
+- Does it save vendors time?
+- Does it reduce the difficulty or cost of running their business?
+- Does it make it easier for customers to order?
+- Does it help vendors reach new customers?
+- Does it help vendors understand sales and profit?
+- Does it encourage customers to return?
+- Does it make StatusPop sustainable without exploiting its users?
+
+Do not promise guaranteed sales, income, or business growth.
+
+## 3. NON-NEGOTIABLE RULE: PROTECT EXISTING WORK
+
+Before writing or modifying code, inspect the current repository and determine what is already implemented.
+
+Do not assume the codebase exactly matches this specification. The running application and actual source code are the source of truth.
+
+### Existing StatusPop foundation
+
+The original specification identifies the following technologies and features:
+
+- Next.js App Router, TypeScript and Tailwind CSS.
+- Supabase for PostgreSQL database and file storage.
+- react-konva for flyer rendering.
+- Browser-based product background removal using `@imgly/background-removal`.
+- Claude API for AI headlines, captions and hashtags.
+- Paystack for subscription payments.
+- Mobile-first interfaces for Nigerian vendors.
+- Naira currency formatting.
+- WhatsApp sharing and image downloads.
+- Flyer templates and a product-photo editing workflow.
+- Vendor referral codes and referral attribution.
+- Free, Day Pass and Pro subscription concepts.
+- Basic usage analytics, error handling and privacy features.
+
+Existing code may differ from this list. Inspect it before making decisions.
+
+### Preservation rules
+
+1. Never recreate the project from scratch.
+2. Never replace the package manager or framework without a demonstrated necessity.
+3. Do not delete or rename existing pages, API routes, database tables, components, migrations, environment variables or features simply to make the implementation easier.
+4. Do not remove existing functionality when introducing a new feature.
+5. Reuse existing UI components, styling tokens, authentication, database clients, validation schemas, utility functions and API patterns.
+6. Do not duplicate functionality that already exists.
+7. Avoid broad refactoring unrelated to the task.
+8. Use additive database migrations whenever possible.
+9. Preserve existing users, vendors, subscriptions, payment records, referral relationships, products and stored files.
+10. Never reset or wipe the production database.
+11. Do not expose API keys, service-role keys, Paystack secret keys or AI credentials in browser code.
+12. Never modify deployment settings blindly. Inspect existing Vercel and Render configurations first.
+13. Preserve existing URLs and route behavior unless a change is essential and backward-compatible.
+14. If an existing implementation conflicts with a proposed feature, explain the conflict and choose the smallest safe change.
+15. If an important architectural decision is unclear, ask before making a destructive change.
+
+Before editing, establish a baseline of the existing build, type checks and relevant tests. Record pre-existing failures separately from failures introduced by your changes.
+
+## 4. DEVELOPMENT WORKFLOW
+
+Follow this process for every implementation phase.
+
+### Step A: Inspect
+
+Review:
+
+- Project directory and package configuration.
+- Existing pages, layouts and navigation.
+- Authentication and authorization.
+- Database schema, migrations and row-level security policies.
+- API routes and server actions.
+- Flyer editor, templates, image processing and AI generation.
+- Payment and subscription logic.
+- Referral and analytics implementations.
+- Existing tests and deployment configuration.
+
+Use the existing package manager and established project conventions.
+
+### Step B: Report the plan
+
+Before coding, briefly state:
+
+- What already exists.
+- What can be reused.
+- What needs to be added.
+- Which files and database objects will change.
+- Any migration, security or compatibility risks.
+- How the new functionality will be tested.
+
+### Step C: Implement incrementally
+
+Implement only the current phase.
+
+Keep changes focused, typed, validated and maintainable. Avoid unnecessary dependencies and speculative abstractions.
+
+### Step D: Test and report
+
+Run the relevant available commands for:
+
+- TypeScript checks.
+- Linting.
+- Production builds.
+- Automated tests.
+- Database migrations and policies where test infrastructure permits.
+- Authentication and authorization.
+- Mobile layouts and accessibility.
+- Regression testing of existing features.
+
+Report actual results. Never claim a test passed if it was not run.
+
+### Step E: Preserve a stable checkpoint
+
+After each phase, document:
+
+- Features implemented.
+- Files changed.
+- Database migrations added.
+- Tests run and their results.
+- Environment variables required.
+- Known limitations.
+- How to run and verify the feature locally.
+- How to deploy it safely.
+
+Do not start the next phase until the current phase is stable and its acceptance criteria are satisfied.
+
+If working in an environment with Git, use a dedicated branch or checkpoint where appropriate. Never overwrite unrelated user changes.
+
+## 5. THE IMPLEMENTATION ROADMAP
+
+Build the following phases in order. Do not attempt to implement all phases in one large change.
+
+### PHASE 0 — AUDIT, BASELINE AND PROTECTION
+
+Do not build new product features yet.
+
+1. Inspect the entire existing application.
+2. Map its current architecture and identify working features.
+3. Identify the existing authentication and vendor identity model.
+4. Document the current database schema and security policies.
+5. Inspect current payment, referral and analytics implementations.
+6. Run existing checks and tests.
+7. Identify incomplete features, technical debt and security concerns.
+8. Create a concise implementation plan for the remaining phases.
+
+Deliver an audit report and a prioritized file-level implementation plan.
+
+Acceptance criteria:
+
+- No existing functionality is removed.
+- No production data is modified.
+- Existing failures are distinguished from new failures.
+- The next phase can be implemented without guessing about the architecture.
+
+### PHASE 1 — VENDOR PRODUCT CATALOG AND MINI-STORE
+
+Build a lightweight online storefront for every vendor.
+
+The goal is to give vendors a shareable product page without requiring them to purchase a domain name or hire a developer.
+
+#### Vendor capabilities
+
+- Create and edit a business profile.
+- Set a unique, validated shop slug.
+- Add, edit, publish, unpublish and archive products.
+- Upload product images using the existing storage architecture.
+- Record product name, description, category, price and availability.
+- Set optional discount prices and stock quantities.
+- Preview the public shop before publishing.
+- Share the shop link through WhatsApp and other supported sharing mechanisms.
+- Edit the shop profile without losing existing product information.
+
+Use the existing vendor identity and authentication system wherever possible.
+
+#### Public storefront
+
+Provide a mobile-friendly route using the existing routing conventions, such as:
+
+`/shop/[slug]`
+
+The public shop should show:
+
+- Business name and available branding.
+- Product images, names and prices.
+- Available discounts.
+- Stock or availability status.
+- Product details.
+- A clear order or WhatsApp contact action.
+- A useful empty state when a shop has no published products.
+
+Allow public access only to information intentionally published by the vendor.
+
+Do not expose phone numbers, email addresses, private customer records, internal IDs or unpublished products unnecessarily.
+
+#### Technical requirements
+
+- Add database tables or columns only where needed.
+- Add appropriate foreign keys, indexes, validation and constraints.
+- Use row-level security and server-side authorization.
+- Ensure vendors can modify only their own shops and products.
+- Validate all prices and inventory values on the server.
+- Prevent duplicate or invalid shop slugs.
+- Optimize images for mobile data usage.
+- Reuse existing design tokens and UI components.
+- Do not interfere with flyer generation.
+
+Acceptance criteria:
+
+A vendor can create a shop, publish products, open the public shop link on a different device and share it with a potential customer. Unauthorized users cannot modify the shop.
+
+### PHASE 2 — CONNECT FLYERS TO PRODUCTS AND ORDERS
+
+Make StatusPop's existing flyer generator work together with the product catalog.
+
+#### Product-to-flyer workflow
+
+- Allow vendors to select an existing product when creating a flyer.
+- Pre-fill product name, price, image, business name and other available information.
+- Allow the vendor to change promotional text without unintentionally changing the saved product.
+- Keep the existing manual flyer creation workflow available.
+- Allow the vendor to return to an existing product and create another campaign.
+- Preserve existing templates, image processing, AI captions and export functionality.
+
+#### Order workflow
+
+Create a simple ordering process that works for vendors who are not ready for a full e-commerce checkout.
+
+- Let customers choose a product and quantity.
+- Capture the minimum necessary customer and delivery information.
+- Validate available stock and order details on the server.
+- Generate a unique order reference.
+- Store the order and its items securely.
+- Allow vendors to view, confirm, reject and update order status.
+- Provide an order summary the vendor can share through WhatsApp.
+- Offer WhatsApp ordering as a fallback when appropriate.
+
+Support a clear status lifecycle, such as:
+
+`Pending → Confirmed → Processing → Completed`
+
+Also support cancelled and rejected orders where appropriate.
+
+Do not mark an order as paid or completed merely because a customer clicked WhatsApp or submitted an order form.
+
+#### Payments
+
+First inspect the existing Paystack implementation.
+
+If actual customer checkout is introduced, keep customer purchases distinct from StatusPop subscription payments. Implement verified payment initialization and server-side webhook verification only when needed for the chosen checkout model.
+
+Never trust client-side payment status.
+
+Do not make online payment compulsory for vendors who prefer to arrange payment directly with their customers.
+
+Acceptance criteria:
+
+A vendor can select a product, create a flyer, publish or share it, receive an order, and manage that order without losing the original flyer functionality.
+
+### PHASE 3 — CAMPAIGN TRACKING AND SALES ANALYTICS
+
+Build on existing analytics and referral tracking rather than introducing a duplicate system.
+
+Give each promotional campaign a trackable identifier and link.
+
+Record relevant events, such as:
+
+- Flyer created.
+- Campaign published or shared.
+- Public product page viewed.
+- Order button clicked.
+- Order submitted.
+- Order confirmed.
+- Order completed.
+- Referral link visited.
+- Verified payment completed, where applicable.
+
+#### Vendor dashboard
+
+Display understandable metrics:
+
+- Number of campaigns created.
+- Product page views.
+- Tracked order inquiries.
+- Orders received.
+- Confirmed and completed orders.
+- Revenue from recorded completed orders.
+- Best-performing products.
+- Campaigns associated with the most completed orders.
+
+Clearly distinguish:
+
+- Page views from unique visitors.
+- Clicks from inquiries.
+- Inquiries from completed purchases.
+- Recorded revenue from estimated profit.
+
+Do not claim to know whether a customer purchased after a WhatsApp conversation unless the purchase is confirmed through a reliable mechanism.
+
+Provide a simple way for vendors to manually record order outcomes when automated confirmation is unavailable.
+
+#### Attribution
+
+Use campaign identifiers, referral codes or appropriate tracking parameters.
+
+Avoid invasive tracking. Minimize personal data collection, document retention periods, and follow applicable Nigerian data protection requirements.
+
+Acceptance criteria:
+
+A vendor can identify which campaigns attracted traffic and which campaigns resulted in recorded orders. Analytics must not leak one vendor's data to another.
+
+### PHASE 4 — CUSTOMER REFERRALS AND ORGANIC GROWTH
+
+Extend the existing referral functionality.
+
+Do not replace or break existing vendor referral codes, attribution cookies or signup tracking.
+
+Add optional customer referral features:
+
+- Generate a referral link for a vendor's shop or product.
+- Attribute a new visit to a referral where technically possible.
+- Associate qualifying orders with the relevant campaign or referral.
+- Allow vendors to configure simple referral incentives.
+- Show vendors their referral activity and qualifying orders.
+- Make referral terms clear to participants.
+
+Where rewards are supported, validate eligibility on the server.
+
+Prevent duplicate rewards, self-referrals, repeated event processing and obvious abuse.
+
+Never pay or award rewards solely because someone clicks a link.
+
+Initially, support seller-funded discounts or rewards with clear limits. Do not introduce a complex wallet, cash-out system, pyramid-style incentive structure or multilevel referral scheme.
+
+Acceptance criteria:
+
+A vendor can share a referral link, see attributable activity and identify qualifying completed orders without duplicate rewards.
+
+### PHASE 5 — CUSTOMER RETENTION AND REPEAT SALES
+
+Build lightweight customer relationship management tools for vendors.
+
+Features:
+
+- Maintain a vendor-specific record of customers associated with recorded orders.
+- Show order history and previous purchases.
+- Allow vendors to organize customers using simple tags.
+- Support optional customer notes.
+- Identify customers who have not ordered recently, where the recorded data supports it.
+- Allow vendors to prepare product restock messages and promotional reminders.
+- Provide editable message templates in clear Nigerian English, with optional natural Pidgin.
+- Let vendors copy messages or open WhatsApp to send them manually.
+
+Privacy requirements:
+
+- Collect only necessary customer information.
+- Do not automatically message customers without appropriate consent.
+- Provide a practical opt-out process for promotional communications.
+- Restrict customer records to the relevant vendor.
+- Do not upload or scrape the vendor's private WhatsApp contacts.
+- Do not imply that StatusPop has access to private WhatsApp conversations.
+- Provide appropriate privacy notices and data deletion processes.
+
+Acceptance criteria:
+
+A vendor can find a previous customer, understand their recorded order history and prepare a relevant follow-up message while respecting privacy and consent.
+
+### PHASE 6 — SIMPLE BUSINESS PROFIT AND PERFORMANCE TOOLS
+
+After order tracking is reliable, introduce basic business insights.
+
+Support vendor-entered costs where available, including:
+
+- Product purchase cost.
+- Packaging.
+- Delivery expenses paid by the vendor.
+- Advertising expenses.
+- Other order-related expenses.
+
+Provide understandable calculations for:
+
+- Recorded sales revenue.
+- Estimated gross profit.
+- Estimated profit after recorded expenses.
+- Best-selling products.
+- Order trends over time.
+- Campaign performance.
+
+Keep the formulas explicit and label incomplete information clearly.
+
+For example:
+
+`Estimated gross profit = recorded sales revenue − recorded cost of goods sold`
+
+Do not describe revenue as profit.
+
+Do not present incomplete expense records as a complete financial statement. Explain that results depend on the accuracy of vendor-entered information.
+
+Do not add complex accounting, tax filing, lending, investment or credit-scoring features to this phase.
+
+Acceptance criteria:
+
+A vendor can understand recorded revenue, the costs they entered, and an appropriately qualified estimate of business profitability.
+
+### PHASE 7 — PRICING, AFFORDABILITY AND PRODUCT SUSTAINABILITY
+
+Inspect the existing StatusPop subscription implementation before changing pricing or access control.
+
+The original pricing concept is:
+
+- Free: ₦0.
+- Day Pass: ₦300.
+- Pro: ₦2,500 per month.
+
+Treat these as existing proposed prices, not as a reason to hard-code business rules throughout the codebase.
+
+Keep pricing configuration centralized and preserve existing payment records and subscriptions.
+
+Evaluate whether:
+
+- Basic flyer creation remains accessible.
+- A free shop and basic ordering flow are commercially sustainable.
+- Advanced analytics, additional templates or higher usage limits can be paid features.
+- Vendors understand the value of upgrading.
+- Expensive AI and image processing operations have sensible usage limits.
+
+Do not place every useful feature behind a paywall without evaluating the effect on adoption.
+
+Do not introduce surprise charges, forced recurring payments or misleading upgrade messages.
+
+If subscription changes are necessary, explain the migration and backward-compatibility plan first.
+
+Acceptance criteria:
+
+Pricing and entitlement rules remain consistent, server-enforced and testable. Existing paid users are not accidentally downgraded or charged again.
+
+### PHASE 8 — MARKETPLACE AND LONG-TERM EXPANSION
+
+Do not build a full marketplace until the earlier phases show real adoption and repeat usage.
+
+First validate that enough vendors maintain accurate, active product catalogs and fulfil orders reliably.
+
+When approved, explore:
+
+- Searchable public vendor listings.
+- Product and category discovery.
+- Location-based discovery using voluntarily supplied business locations.
+- Vendor verification and reporting mechanisms.
+- Buyer-friendly search and filters.
+- Clear vendor contact and order flows.
+- Optional delivery arrangements.
+
+Build buyer discovery only when there is enough supply and a credible plan to attract buyers.
+
+Do not scrape private contact lists, expose private data or imply that vendors are verified without a real verification process.
+
+Do not add marketplace commissions, escrow, dispute handling or logistics integrations until their operational, legal and financial requirements are understood.
+
+Acceptance criteria:
+
+Marketplace development is justified by evidence from existing vendors and buyers, not by the desire to add more features.
+
+## 6. TECHNICAL AND ARCHITECTURAL STANDARDS
+
+### Frontend
+
+- Use the existing Next.js App Router architecture.
+- Use TypeScript with appropriate types.
+- Reuse Tailwind styling and established design tokens.
+- Reuse existing shared components.
+- Keep forms clear and responsive.
+- Maintain accessible keyboard navigation, focus indicators and contrast.
+- Use loading, success, empty and error states.
+- Confirm destructive actions.
+- Avoid large unnecessary client-side dependencies.
+
+### Mobile performance
+
+Design for low-end Android phones and expensive mobile data.
+
+- Keep important pages lightweight.
+- Optimize product images and flyer previews.
+- Avoid downloading all products or images at once.
+- Use pagination or incremental loading where appropriate.
+- Avoid blocking the interface during AI requests.
+- Use timeouts and graceful fallback behavior.
+- Preserve existing image-processing safeguards.
+- Test on constrained network conditions.
+
+### Backend and database
+
+- Follow existing server-side patterns.
+- Validate all incoming data.
+- Enforce authorization on the server and in database policies.
+- Use transactions or appropriate atomic operations for related order and inventory changes.
+- Add indexes for frequently queried fields.
+- Keep database migrations versioned and reversible where practical.
+- Do not use client-provided vendor IDs as proof of authorization.
+- Ensure webhook handlers are secure and idempotent.
+- Do not expose internal errors or secrets.
+
+### Security and privacy
+
+- Inspect existing authentication and session handling.
+- Protect private business and customer information.
+- Enforce ownership checks on every sensitive mutation.
+- Add reasonable rate limits to public endpoints.
+- Prevent unauthorized price or stock changes.
+- Validate uploaded files and enforce sensible size limits.
+- Avoid collecting unnecessary personal data.
+- Preserve existing content-safety checks.
+- Document security-sensitive configuration.
+
+### Maintainability
+
+- Use the existing architecture unless a change is justified.
+- Keep business logic out of presentation components where practical.
+- Avoid duplicating database access patterns.
+- Use shared validation schemas where appropriate.
+- Keep functions focused and readable.
+- Add comments for non-obvious business rules.
+- Update documentation whenever configuration or workflows change.
+
+Do not create an additional framework, separate application or parallel database merely because it seems convenient.
+
+## 7. TESTING AND REGRESSION REQUIREMENTS
+
+For every phase, verify the new feature and all related existing workflows.
+
+At minimum, cover applicable cases for:
+
+1. New and existing vendor authentication.
+2. Unauthorized access attempts.
+3. Product creation and editing.
+4. Flyer creation and export.
+5. Shop publishing and public access.
+6. Order submission and status changes.
+7. Inventory consistency.
+8. Referral attribution and duplicate-event handling.
+9. Analytics accuracy and vendor data isolation.
+10. Subscription and payment regression.
+11. Mobile responsiveness.
+12. Empty states, validation failures and network errors.
+
+Add or update automated tests using the existing test framework.
+
+Do not weaken or delete existing tests to make a build pass.
+
+If a test cannot run because of missing credentials or unavailable infrastructure, explain the limitation and provide a safe verification procedure.
+
+## 8. DEFINITION OF DONE
+
+A phase is complete only when:
+
+- The feature is implemented within the existing architecture.
+- Existing relevant features still work.
+- Type checks, linting, builds and applicable tests have been run.
+- Database changes and security policies are documented.
+- Mobile and error states are handled.
+- No secrets are exposed.
+- No production data has been wiped or silently changed.
+- Required environment variables are documented.
+- The README and setup instructions are updated where necessary.
+- I receive a concise implementation report and exact testing instructions.
+
+## 9. HOW TO REPORT EACH PHASE
+
+At the end of each phase, provide:
+
+**Implementation summary**
+- What was added.
+- What existing functionality was preserved.
+- How the new feature works.
+
+**Files changed**
+- List the important files and their purposes.
+
+**Database changes**
+- Migration names, tables, columns, indexes and security policies added or modified.
+
+**Verification**
+- Commands executed.
+- Tests that passed.
+- Tests that failed.
+- Any checks that could not be performed.
+
+**Deployment**
+- New environment variables, if any.
+- Migration and deployment order.
+- Rollback considerations.
+
+**Next phase**
+- The next recommended step.
+- Any unresolved decisions requiring my approval.
+
+Be honest about what was actually implemented. Do not report a feature as complete when only its interface has been created.
+
+## 10. FIRST ACTION — START WITH PHASE 0 ONLY
+
+Now begin by inspecting the existing StatusPop repository.
+
+Do not immediately implement all the proposed features.
+
+First establish the actual state of the codebase, identify what already works, run the available baseline checks, and produce a prioritized implementation plan.
+
+Then implement only the next approved phase.
+
+If I later say "continue", proceed to the next phase only after verifying that the previous phase is stable. If a blocker requires a decision from me, stop and ask a focused question.
+
+**Final instruction:** Build a coherent, maintainable product that grows from the existing StatusPop application. Every change must preserve working functionality, have a clear economic purpose for small vendors, and be testable before the next change begins.
