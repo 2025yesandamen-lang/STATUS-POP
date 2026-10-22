@@ -1,4 +1,4 @@
-# 🚀 StatusPop Nigeria — Mobile-First AI Status Flyer & Ad Creator
+# 🚀 StatusPop Nigeria — Mobile-First Status Flyer & Ad Creator
 
 **StatusPop** is an ultra-fast, mobile-optimized sales flyer creator, mini-store, and marketing generator built specifically for Nigerian retail merchants, artisans, mechanics, thrift vendors, boutique owners, caterers, and salons.
 
