@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Check, ShieldCheck, Zap, Sparkles } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, ShieldCheck, Zap } from 'lucide-react';
 import { UserPlan } from '../../types/index.ts';
 import { recordAnalyticsEvent } from '../../lib/storage.ts';
 import { BottomSheet } from '../ui/BottomSheet.tsx';
@@ -10,18 +10,26 @@ export interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentPlan: UserPlan;
-  onPlanUpdated: (newPlan: UserPlan) => void;
 }
 
 export const PricingModal: React.FC<PricingModalProps> = ({
   isOpen,
   onClose,
   currentPlan,
-  onPlanUpdated,
 }) => {
   const { showToast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<'day_pass' | 'pro'>('day_pass');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [email, setEmail] = useState('');
+  const [paymentsAvailable, setPaymentsAvailable] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/vendor/session', { credentials: 'same-origin' })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Payment service unavailable.')))
+      .then((session) => setPaymentsAvailable(Boolean(session.paymentsConfigured)))
+      .catch(() => setPaymentsAvailable(false));
+  }, [isOpen]);
 
   const handlePaystackCheckout = async () => {
     setIsProcessing(true);
@@ -33,15 +41,15 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plan: selectedPlan,
-          amount: selectedPlan === 'day_pass' ? 500 : 2500,
+          email,
         }),
       });
 
       const checkout = await response.json();
-      if (!response.ok || !checkout.data?.authorization_url) {
+      if (!response.ok || !checkout.authorizationUrl) {
         throw new Error(checkout.message || 'Online payments are not available yet.');
       }
-      window.location.assign(checkout.data.authorization_url);
+      window.location.assign(checkout.authorizationUrl);
     } catch (error) {
       setIsProcessing(false);
       showToast(
@@ -62,9 +70,21 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           <h2 className="text-xl font-black text-gray-900 dark:text-white">
             Sell More with Clean, Watermark-Free Flyers
           </h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-            Over 10,000 Nigerian vendors use StatusPop to boost daily sales.
-          </p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Current plan: <strong>{currentPlan.replace('_', ' ')}</strong></p>
+        </div>
+
+        <div>
+          <label htmlFor="payment-email" className="block text-sm font-semibold mb-1">Receipt email</label>
+          <input
+            id="payment-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="w-full px-3.5 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-base focus:ring-2 focus:ring-[#0B6B3A] outline-none"
+          />
         </div>
 
         {/* Plan Cards */}
@@ -165,7 +185,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         {/* Payment availability */}
         <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400 pt-1">
           <ShieldCheck className="w-4 h-4 text-[#0B6B3A]" />
-          <span>Online payments are currently unavailable.</span>
+          <span>{paymentsAvailable ? 'Payment processed securely by Paystack.' : 'Payment service is not configured yet.'}</span>
         </div>
 
         {/* Checkout Button */}
@@ -175,11 +195,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           size="lg"
           fullWidth
           isLoading={isProcessing}
-          disabled
+          disabled={!paymentsAvailable || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
           onClick={handlePaystackCheckout}
           leftIcon={<Zap className="w-5 h-5 text-[#FFC93C]" />}
         >
-          Payment setup required
+          {paymentsAvailable ? `Pay ${selectedPlan === 'day_pass' ? '₦500' : '₦2,500'} via Paystack` : 'Payment setup required'}
         </Button>
       </div>
     </BottomSheet>

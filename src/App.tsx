@@ -206,6 +206,56 @@ function MainContent() {
   const [isPhoneLockOpen, setIsPhoneLockOpen] = useState(false);
   const [isMiniProfileModalOpen, setIsMiniProfileModalOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    const syncEntitlement = async () => {
+      try {
+        const initialSession = await fetch('/api/vendor/session', { credentials: 'same-origin' });
+        if (!initialSession.ok) return;
+        await initialSession.json();
+        const params = new URLSearchParams(window.location.search);
+        const reference = params.get('payment_reference');
+        if (reference) {
+          let paymentStatus = 'pending';
+          for (let attempt = 0; attempt < 8; attempt += 1) {
+            const response = await fetch(`/api/payments/verify/${encodeURIComponent(reference)}`, { credentials: 'same-origin' });
+            if (!response.ok) throw new Error('Payment is still being verified.');
+            const verification = await response.json();
+            paymentStatus = verification.paymentStatus;
+            if (paymentStatus !== 'pending') break;
+            await new Promise((resolve) => window.setTimeout(resolve, 2500));
+          }
+          if (paymentStatus === 'success') {
+            showToast('Payment verified', 'Your plan is active on this device.', 'success');
+          } else if (paymentStatus === 'failed') {
+            showToast('Payment not completed', 'No paid plan was activated.', 'error');
+          } else {
+            showToast('Payment pending', 'Your plan will update after Paystack confirms payment. Refresh to check again.', 'info');
+          }
+          if (paymentStatus !== 'pending') {
+            params.delete('payment_reference');
+            const query = params.toString();
+            window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+          }
+        }
+        const sessionResponse = await fetch('/api/vendor/session', { credentials: 'same-origin' });
+        if (!sessionResponse.ok) return;
+        const session = await sessionResponse.json();
+        if (!cancelled) {
+          setVendor((current) => ({
+            ...current,
+            plan: session.plan === 'pro' || session.plan === 'day_pass' ? session.plan : 'free',
+            planExpiresAt: session.planExpiresAt || undefined,
+          }));
+        }
+      } catch (error) {
+        if (!cancelled) console.warn('Could not refresh vendor entitlement:', error);
+      }
+    };
+    void syncEntitlement();
+    return () => { cancelled = true; };
+  }, [showToast]);
+
   // Image processing state
   const [isProcessingBg, setIsProcessingBg] = useState(false);
   const [bgRemovalProgress, setBgRemovalProgress] = useState(0);
@@ -1580,7 +1630,6 @@ function MainContent() {
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
         currentPlan={vendor.plan}
-        onPlanUpdated={(plan) => setVendor(getVendorProfile())}
       /></Suspense>
 
       {/* Phone Lock Account Modal */}

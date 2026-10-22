@@ -82,7 +82,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Admin login is server-verified, rate-limited, and uses an expiring HttpOnly cookie. The admin page reports that its data store is unavailable until a persistent database is integrated. It does not show sample CRM, order, or payment records.
 
-Online payments, bank resolution, and subaccount creation are disabled. Do not enable payments until real server-side order and entitlement persistence, Paystack callback verification, and signed webhook reconciliation are implemented and tested. The current app has no database, so it cannot reliably fulfill those requirements.
+The server-side Paystack flow requires `DATABASE_URL`, `PAYSTACK_SECRET_KEY`, a 32+ character `SESSION_SECRET`, and an HTTPS `APP_URL`. On startup/first payment it creates the payment and entitlement tables in PostgreSQL. Set Paystack's webhook URL to `https://your-domain/api/paystack/webhook`; use the same Paystack secret for webhook verification unless a separate `PAYSTACK_WEBHOOK_SECRET` is configured. The server fixes prices, persists pending references before redirect, verifies references directly with Paystack, validates vendor/plan/amount/currency, and applies paid entitlements transactionally and idempotently. Payments fail closed if PostgreSQL or Paystack is unavailable.
+
+The current identity is an anonymous browser-bound HttpOnly session, not a recoverable customer account. An entitlement is available only in that browser; clearing its cookies loses access. Add phone/email authentication and account recovery before relying on cross-device paid-plan access or offering payments at scale. Back up the PostgreSQL database and configure TLS, monitoring, webhook retries, and incident alerts in production.
 
 ### 3. Run Development Server
 ```bash
@@ -102,4 +104,4 @@ npm start
 - **15 Sector Templates**: Auto Mechanics, Artisans & Plumbers, Church & Ministries, Thrift Multi-Grids, Barbers & Salons, Boutique Fashion, Tech Gadgets.
 - **WhatsApp DP Creator**: Dedicated square profile picture generator with business badges, services, and phone number.
 - **Special Holiday Flyers**: Independence Day, Christmas, New Year, Easter, Eid, and Customer Appreciation cards.
-- **Online payments**: Disabled until persistent order/entitlement storage and verified Paystack webhooks are available. Shop orders use a direct WhatsApp handoff and are not stored by this app.
+- **Online payments**: Server-side Paystack initialization, verification, signed webhooks, and PostgreSQL-backed entitlements. Requires production secrets/database configuration; shop orders use a direct WhatsApp handoff and are not stored by this app.

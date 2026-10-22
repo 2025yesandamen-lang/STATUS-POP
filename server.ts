@@ -7,6 +7,19 @@ import { GoogleGenAI, Type } from '@google/genai';
 
 dotenv.config();
 
+const {
+  createPendingPayment,
+  ensurePaymentSchema,
+  getPendingPayment,
+  getVendorEntitlement,
+  isPaymentStorageConfigured,
+  markPaymentFailed,
+  markPaymentSuccessful,
+  processPaystackWebhookEvent,
+  saveAuthorizationUrl,
+} = await import('./src/lib/payments.ts');
+type PaidPlan = import('./src/lib/payments.ts').PaidPlan;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -15,11 +28,42 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const ADMIN_SESSION_COOKIE = 'statuspop_admin_session';
+const VENDOR_SESSION_COOKIE = 'statuspop_vendor_session';
 const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const VENDOR_SESSION_TTL_SECONDS = 365 * 24 * 60 * 60;
 const adminAuthConfigured = ADMIN_PASSWORD.length >= 12 && SESSION_SECRET.length >= 32;
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
+const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET || PAYSTACK_SECRET_KEY;
+const appUrl = process.env.APP_URL || '';
+const validAppUrl = /^https:\/\//i.test(appUrl);
+const paymentsConfigured = Boolean(
+  isPaymentStorageConfigured() && SESSION_SECRET.length >= 32 && PAYSTACK_SECRET_KEY && PAYSTACK_WEBHOOK_SECRET && validAppUrl
+);
+
+function isPaymentsConfigured(): boolean {
+  return paymentsConfigured;
+}
+
+async function isPaymentsReady(): Promise<boolean> {
+  if (!paymentsConfigured) return false;
+  try {
+    await ensurePaymentSchema();
+    return true;
+  } catch (error) {
+    console.error('Payment database is not ready:', error);
+    return false;
+  }
+}
 
 // Increased limit for high-res mobile photos
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({
+  limit: '20mb',
+  verify: (req, _res, buffer) => {
+    if ((req as Request).originalUrl === '/api/paystack/webhook') {
+      (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // 1. Security Headers Hardening
@@ -80,7 +124,52 @@ function setAdminSessionCookie(res: Response, value: string, maxAge: number): vo
   });
 }
 
-app.post('/api/admin/login', (req: Request, res: Response) => {
+function getSignedSessionId(req: Request, cookieName: string): string | null {
+  if (SESSION_SECRET.length < 32) return null;
+  const token = getCookie(req, cookieName);
+  if (!token) return null;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return null;
+  const expected = signSession(payload);
+  const receivedBytes = Buffer.from(signature);
+  const expectedBytes = Buffer.from(expected);
+  if (receivedBytes.length !== expectedBytes.length || !timingSafeEqual(receivedBytes, expectedBytes)) return null;
+  try {
+    const value = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: number; id?: string };
+    return typeof value.exp === 'number' && value.exp > Date.now() && typeof value.id === 'string' ? value.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function issueVendorSession(res: Response, vendorId: string): void {
+  const payload = Buffer.from(JSON.stringify({
+    exp: Date.now() + VENDOR_SESSION_TTL_SECONDS * 1000,
+    id: vendorId,
+  })).toString('base64url');
+  res.cookie(VENDOR_SESSION_COOKIE, `${payload}.${signSession(payload)}`, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: VENDOR_SESSION_TTL_SECONDS * 1000,
+  });
+}
+
+function getVendorSessionId(req: Request): string | null {
+  return getSignedSessionId(req, VENDOR_SESSION_COOKIE);
+}
+
+function requireVendor(req: Request, res: Response): string | null {
+  const vendorId = getVendorSessionId(req);
+  if (!vendorId) {
+    res.status(401).json({ error: 'vendor_session_required', message: 'Refresh the app to start a vendor session.' });
+    return null;
+  }
+  return vendorId;
+}
+
+app.post('/api/admin/login', async (req: Request, res: Response) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   if (!checkRateLimit(`admin:${ip}`, 5, 15 * 60 * 1000)) {
     res.status(429).json({ message: 'Too many sign-in attempts. Try again in 15 minutes.' });
@@ -101,15 +190,15 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
 
   const payload = Buffer.from(JSON.stringify({ exp: Date.now() + ADMIN_SESSION_TTL_SECONDS * 1000, nonce: randomBytes(16).toString('hex') })).toString('base64url');
   setAdminSessionCookie(res, `${payload}.${signSession(payload)}`, ADMIN_SESSION_TTL_SECONDS * 1000);
-  res.json({ authenticated: true, dataStoreConfigured: false, paymentsConfigured: false });
+  res.json({ authenticated: true, dataStoreConfigured: isPaymentStorageConfigured(), paymentsConfigured: await isPaymentsReady() });
 });
 
-app.get('/api/admin/session', (req: Request, res: Response) => {
+app.get('/api/admin/session', async (req: Request, res: Response) => {
   if (!adminAuthConfigured) {
     res.status(503).json({ error: 'admin_auth_not_configured', message: 'Admin sign-in is not configured on this server.' });
     return;
   }
-  res.json({ authenticated: hasAdminSession(req), dataStoreConfigured: false, paymentsConfigured: false });
+  res.json({ authenticated: hasAdminSession(req), dataStoreConfigured: isPaymentStorageConfigured(), paymentsConfigured: await isPaymentsReady() });
 });
 
 app.post('/api/admin/logout', (_req: Request, res: Response) => {
@@ -117,8 +206,188 @@ app.post('/api/admin/logout', (_req: Request, res: Response) => {
   res.status(204).end();
 });
 
-app.get('/api/admin/status', requireAdmin, (_req: Request, res: Response) => {
-  res.json({ dataStoreConfigured: false, paymentsConfigured: false });
+app.get('/api/admin/status', requireAdmin, async (_req: Request, res: Response) => {
+  res.json({ dataStoreConfigured: isPaymentStorageConfigured(), paymentsConfigured: await isPaymentsReady() });
+});
+
+app.get('/api/vendor/session', async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (SESSION_SECRET.length < 32) {
+    res.status(503).json({ error: 'vendor_session_unavailable' });
+    return;
+  }
+  let vendorId = getVendorSessionId(req);
+  if (!vendorId) {
+    vendorId = randomBytes(18).toString('base64url');
+    issueVendorSession(res, vendorId);
+  }
+  if (!isPaymentStorageConfigured()) {
+    res.json({ vendorId, plan: 'free', planExpiresAt: null, paymentsConfigured: false });
+    return;
+  }
+  try {
+    const entitlement = await getVendorEntitlement(vendorId);
+    res.json({ vendorId, ...entitlement, paymentsConfigured: await isPaymentsReady() });
+  } catch (error) {
+    console.error('Vendor entitlement lookup failed:', error);
+    res.status(503).json({ error: 'entitlement_unavailable', message: 'Could not verify plan status.' });
+  }
+});
+
+app.post('/api/checkout', async (req: Request, res: Response): Promise<void> => {
+  res.setHeader('Cache-Control', 'no-store');
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(`checkout:${ip}`, 10, 60 * 1000)) {
+    res.status(429).json({ error: 'rate_limited', message: 'Too many checkout attempts. Try again shortly.' });
+    return;
+  }
+  if (!(await isPaymentsReady())) {
+    res.status(503).json({ error: 'payments_not_configured', message: 'Payments require DATABASE_URL, Paystack secret, SESSION_SECRET, and HTTPS APP_URL.' });
+    return;
+  }
+  const vendorId = requireVendor(req, res);
+  if (!vendorId) return;
+
+  const plan = req.body?.plan as PaidPlan;
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!Object.hasOwn({ day_pass: true, pro: true }, plan) || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: 'invalid_checkout', message: 'Choose a plan and provide a valid receipt email.' });
+    return;
+  }
+
+  let pendingReference: string | null = null;
+  try {
+    await ensurePaymentSchema();
+    const pending = await createPendingPayment({ vendorId, plan, email });
+    pendingReference = pending.reference;
+    const origin = appUrl.replace(/\/$/, '');
+    const gatewayResponse = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        amount: pending.amountKobo,
+        currency: 'NGN',
+        reference: pending.reference,
+        callback_url: `${origin}/?payment_reference=${encodeURIComponent(pending.reference)}`,
+        metadata: { vendor_id: vendorId, plan },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const gateway = await gatewayResponse.json() as { status?: boolean; message?: string; data?: { authorization_url?: string } };
+    if (!gatewayResponse.ok || !gateway.status || !gateway.data?.authorization_url) {
+      await markPaymentFailed(pending.reference, vendorId);
+      res.status(502).json({ error: 'checkout_initialization_failed', message: 'Paystack could not initialize checkout.' });
+      return;
+    }
+    await saveAuthorizationUrl(pending.reference, gateway.data.authorization_url);
+    res.json({ authorizationUrl: gateway.data.authorization_url, reference: pending.reference });
+  } catch (error) {
+    console.error('Payment initialization failed:', error);
+    if (pendingReference) {
+      try {
+        await markPaymentFailed(pendingReference, vendorId);
+      } catch (markError) {
+        console.error('Could not mark failed checkout:', markError);
+      }
+    }
+    res.status(503).json({ error: 'checkout_unavailable', message: 'Checkout is temporarily unavailable. No payment was confirmed.' });
+  }
+});
+
+app.get('/api/payments/verify/:reference', async (req: Request, res: Response): Promise<void> => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!(await isPaymentsReady())) {
+    res.status(503).json({ error: 'payments_not_configured' });
+    return;
+  }
+  const vendorId = requireVendor(req, res);
+  if (!vendorId) return;
+  const reference = req.params.reference;
+  if (!/^[a-zA-Z0-9_-]{10,80}$/.test(reference)) {
+    res.status(400).json({ error: 'invalid_reference' });
+    return;
+  }
+  try {
+    const pending = await getPendingPayment(reference, vendorId);
+    if (!pending) {
+      res.status(404).json({ error: 'payment_not_found' });
+      return;
+    }
+    let verifiedStatus: 'pending' | 'success' | 'failed' = pending.status;
+    if (pending.status === 'pending') {
+      const verificationResponse = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+        signal: AbortSignal.timeout(15000),
+      });
+      const verification = await verificationResponse.json() as {
+        status?: boolean;
+        data?: { status?: string; reference?: string; amount?: number; currency?: string; metadata?: { vendor_id?: string; plan?: PaidPlan } };
+      };
+      const payment = verification.data;
+      if (verificationResponse.ok && verification.status && payment?.status === 'success') {
+        const valid = payment.reference === pending.reference &&
+          payment.amount === Number(pending.amount_kobo) &&
+          payment.currency === pending.currency &&
+          payment.metadata?.vendor_id === vendorId &&
+          payment.metadata?.plan === pending.plan;
+        if (!valid) {
+          res.status(409).json({ error: 'payment_mismatch', message: 'Payment details do not match this checkout.' });
+          return;
+        }
+        const granted = await markPaymentSuccessful({
+          reference: pending.reference,
+          vendorId,
+          plan: pending.plan,
+          amountKobo: Number(pending.amount_kobo),
+          currency: pending.currency,
+        });
+        if (!granted) {
+          res.status(409).json({ error: 'entitlement_not_granted' });
+          return;
+        }
+        verifiedStatus = 'success';
+      } else if (payment?.status === 'failed' || payment?.status === 'abandoned') {
+        await markPaymentFailed(reference, vendorId);
+        verifiedStatus = 'failed';
+      }
+    }
+    const entitlement = await getVendorEntitlement(vendorId);
+    res.json({ reference, paymentStatus: verifiedStatus, ...entitlement });
+  } catch (error) {
+    console.error('Payment verification failed:', error);
+    res.status(503).json({ error: 'verification_unavailable', message: 'Could not verify payment. Retry shortly.' });
+  }
+});
+
+app.post('/api/paystack/webhook', async (req: Request, res: Response): Promise<void> => {
+  if (!(await isPaymentsReady())) {
+    res.status(503).end();
+    return;
+  }
+  const signature = req.header('x-paystack-signature') || '';
+  const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+  if (!rawBody) {
+    res.status(400).end();
+    return;
+  }
+  const expected = createHmac('sha512', PAYSTACK_WEBHOOK_SECRET).update(rawBody).digest('hex');
+  const receivedBytes = Buffer.from(signature, 'hex');
+  const expectedBytes = Buffer.from(expected, 'hex');
+  if (receivedBytes.length !== expectedBytes.length || !timingSafeEqual(receivedBytes, expectedBytes)) {
+    res.status(401).end();
+    return;
+  }
+  try {
+    const processed = await processPaystackWebhookEvent(req.body);
+    res.status(processed ? 200 : 400).json({ received: processed });
+  } catch (error) {
+    console.error('Paystack webhook processing failed:', error);
+    res.status(500).end();
+  }
 });
 
 // 2. Shared Google Gemini Client
@@ -803,15 +1072,6 @@ app.post('/api/paystack/create-subaccount', async (req: Request, res: Response) 
     status: false,
     error: 'subaccount_creation_unavailable',
     message: 'Live subaccount creation is unavailable. No subaccount was created.',
-  });
-});
-
-// 6. Paystack Checkout Endpoint with Direct Split Payments
-app.post('/api/checkout', (req: Request, res: Response) => {
-  res.status(503).json({
-    status: 'unavailable',
-    error: 'payments_not_configured',
-    message: 'Online payments are not available yet. No payment was taken.',
   });
 });
 
