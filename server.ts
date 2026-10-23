@@ -36,7 +36,8 @@ const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const adminAuthConfigured = ADMIN_PASSWORD.length >= 12 && SESSION_SECRET.length >= 32;
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET || PAYSTACK_SECRET_KEY;
-const appUrl = process.env.APP_URL || '';
+const appUrl = process.env.APP_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '');
 const validAppUrl = /^https:\/\//i.test(appUrl);
 const paymentsConfigured = Boolean(
   isPaymentStorageConfigured() && SESSION_SECRET.length >= 32 && PAYSTACK_SECRET_KEY && PAYSTACK_WEBHOOK_SECRET && validAppUrl

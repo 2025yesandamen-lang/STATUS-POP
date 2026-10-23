@@ -17,14 +17,17 @@ async function sendAccountEmail(input: { to: string; subject: string; html: stri
 }
 
 function createConfiguredAuth(secret: string) {
+  const productionAuth = process.env.NODE_ENV === 'production';
+  const productionUrl = process.env.APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined);
   return betterAuth({
     database: databasePool!,
     secret,
     baseURL: process.env.BETTER_AUTH_URL ||
-      (process.env.NODE_ENV === 'production' ? process.env.APP_URL : 'http://localhost:3000'),
+      (productionAuth ? productionUrl : 'http://localhost:3000'),
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      requireEmailVerification: productionAuth,
       sendResetPassword: async ({ user, url }) => {
         await sendAccountEmail({
           to: user.email,
@@ -35,7 +38,7 @@ function createConfiguredAuth(secret: string) {
       },
     },
     emailVerification: {
-      sendOnSignUp: true,
+      sendOnSignUp: productionAuth,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await sendAccountEmail({

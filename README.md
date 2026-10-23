@@ -89,13 +89,13 @@ Run the Better Auth schema migration after setting `DATABASE_URL` and `BETTER_AU
 npm run auth:migrate
 ```
 
-Email verification and password reset use Resend. Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL`, and verify the sending domain in Resend before enabling sign-up in production. Set `BETTER_AUTH_URL` to `http://localhost:3000` for local development and the production origin for deployment; set `APP_URL` to the same HTTPS production origin for payment callbacks.
+The migration uses Better Auth's installed migration API directly, so it does not need `npx` to download a separate CLI. In local development, sign-up does not require email verification, so you can test accounts before configuring an email sender. Production sign-up requires verification: set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to an address on a domain verified in Resend. Password-reset email delivery also needs the sender configured. Set `BETTER_AUTH_URL` to your app origin when deploying; local development defaults to `http://localhost:3000`. In Vercel production, the auth URL can use `APP_URL` or Vercel's production domain setting.
 
 After sign-in, StatusPop imports the current browser's vendor profile and products once if the account has no saved profile. Later profile/product changes are synced to PostgreSQL. Data already cleared or stored in a different browser cannot be recovered by this migration. Account-owned product images and exported flyers are uploaded to Cloudinary; set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` to enable uploads. The app keeps local drafts and downloads available if cloud storage is not configured.
 
 ### Paystack
 
-The server-side Paystack flow requires `DATABASE_URL`, `PAYSTACK_SECRET_KEY`, `SESSION_SECRET` (at least 32 characters), and an HTTPS `APP_URL`. It creates payment and entitlement tables in PostgreSQL as needed. Set Paystack's webhook URL to `https://your-domain/api/paystack/webhook`; use the same Paystack secret for webhook verification unless `PAYSTACK_WEBHOOK_SECRET` is configured. Checkout is restricted to a signed-in account with a verified email. The server sets prices, persists pending references before redirect, verifies payments directly with Paystack, validates account/plan/amount/currency, and applies entitlements transactionally and idempotently.
+The server-side Paystack flow requires `DATABASE_URL`, `PAYSTACK_SECRET_KEY`, `SESSION_SECRET` (at least 32 characters), and an HTTPS production `APP_URL`. It creates payment and entitlement tables in PostgreSQL as needed. In Vercel production, the configured project production domain can supply the app URL if `APP_URL` is omitted. Set Paystack's webhook URL to `https://your-domain/api/paystack/webhook`; use the same Paystack secret for webhook verification unless `PAYSTACK_WEBHOOK_SECRET` is configured. Checkout is restricted to a signed-in account with a verified email. The server sets prices, persists pending references before redirect, verifies payments directly with Paystack, validates account/plan/amount/currency, and applies entitlements transactionally and idempotently.
 
 Administrator access remains separate: configure `ADMIN_PASSWORD` (at least 12 characters) and `SESSION_SECRET` (at least 32 characters). Admin login is server-verified, rate-limited, and uses an expiring HttpOnly cookie. Back up PostgreSQL and configure monitoring, webhook retries, and incident alerts before relying on paid plans in production.
 
@@ -113,7 +113,7 @@ npm start
 
 ### Deploy to Vercel
 
-Import the repository into Vercel and use the included `vercel.json`. The frontend is built to `dist`; the Express API runs as a Vercel Function. Add the production environment variables from `.env.example` in Vercel's project settings. Configure the Neon pooled `DATABASE_URL`, `DATABASE_SSL=true`, `APP_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_SECRET` for Production, Preview, and Development as appropriate. Vercel functions are request-driven, not persistent background servers. Review Vercel's current plan terms and limits for your intended commercial use.
+Import the repository into Vercel and use the included `vercel.json`. The frontend is built to `dist`; the Express API runs as a Vercel Function. Add environment variables in Vercel's project settings. Use a separate Neon database for previews/development when possible, and scope live Paystack keys to Production only. Set `DATABASE_URL`, `DATABASE_SSL=true`, `BETTER_AUTH_SECRET`, Resend settings, and Cloudinary settings for the environments where you want those features. Set `APP_URL` and `BETTER_AUTH_URL` to the production origin when you have it; Better Auth and Paystack can use Vercel's configured production domain as a fallback. Paystack checkout still requires an HTTPS production origin. Vercel functions are request-driven, not persistent background servers. Review Vercel's current plan terms and limits for your intended commercial use.
 
 ---
 

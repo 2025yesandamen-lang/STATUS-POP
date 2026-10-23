@@ -8,7 +8,7 @@
     "start": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "auth:migrate": "npx auth@latest migrate --config ./src/lib/auth.ts",
+    "auth:migrate": "tsx scripts/migrate-auth.ts",
     "auth:generate": "npx auth@latest generate --config ./src/lib/auth.ts",
     "clean": "node -e \"try { fs.rmSync('dist', { recursive: true, force: true }); fs.rmSync('server.js', { force: true }); } catch (e) {}\"",
     "lint": "tsc --noEmit"
