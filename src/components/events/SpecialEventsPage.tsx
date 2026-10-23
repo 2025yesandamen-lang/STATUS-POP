@@ -107,7 +107,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
     services: activeDesign.defaultServices || ['Original Quality', 'Nationwide Waybill', 'Tested & Trusted', '24/7 Hotline'],
     phone: vendor.phone || '08023456789',
     address: vendor.address || 'SUITE 14, SIMBIAT ABIOLA WAY, IKEJA COMPUTER VILLAGE, LAGOS',
-    website: 'www.statuspop.ng',
+    website: 'status-pop.vercel.app',
     heroImage: activeDesign.heroGraphic,
     includePhoto: true,
   });
@@ -357,7 +357,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
 
   // WhatsApp Share
   const handleWhatsAppShare = async () => {
-    const caption = `🎉 ${customData.headlineTitle}!\n\n${customData.messageQuote}\n\n📍 ${customData.address}\n📞 Call/WhatsApp: ${customData.phone}\n\n✨ *${customData.businessName}* wishes you all the best!\n\n(Create your own 10-second flyer at statuspop.ng/r/${vendor.referralCode})`;
+    const caption = `🎉 ${customData.headlineTitle}!\n\n${customData.messageQuote}\n\n📍 ${customData.address}\n📞 Call/WhatsApp: ${customData.phone}\n\n✨ *${customData.businessName}* wishes you all the best!\n\n(Create your own 10-second flyer at status-pop.vercel.app/r/${vendor.referralCode})`;
 
     if (navigator.share && previewDataUrl) {
       try {
@@ -1057,7 +1057,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                   type="text"
                   value={customData.website}
                   onChange={(e) => setCustomData((prev) => ({ ...prev, website: e.target.value }))}
-                  placeholder="www.statuspop.ng"
+                  placeholder="status-pop.vercel.app"
                   className="tap-target w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none"
                 />
               </div>

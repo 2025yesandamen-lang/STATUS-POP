@@ -33,7 +33,7 @@ export const CopyPanel: React.FC<CopyPanelProps> = ({
   const [copiedCaptionIdx, setCopiedCaptionIdx] = useState<number | null>(null);
 
   const isFreePlan = userPlan === 'free';
-  const viralFooter = isFreePlan ? `\n\nMade with StatusPop: statuspop.ng/r/${referralCode}?src=caption` : '';
+  const viralFooter = isFreePlan ? `\n\nMade with StatusPop: status-pop.vercel.app/r/${referralCode}?src=caption` : '';
 
   // Default AI suggestions tailored for Nigerian retail and artisan sectors
   const [suggestions, setSuggestions] = useState<AICopySuggestion>({
@@ -245,7 +245,7 @@ export const CopyPanel: React.FC<CopyPanelProps> = ({
               <p className="leading-relaxed whitespace-pre-wrap">{cap.text}</p>
               {isFreePlan && (
                 <p className="text-[10px] text-gray-400 font-mono mt-2 pt-1 border-t border-gray-200 dark:border-gray-700">
-                  + Made with StatusPop: statuspop.ng/r/{referralCode}?src=caption
+                  + Made with StatusPop: status-pop.vercel.app/r/{referralCode}?src=caption
                 </p>
               )}
             </div>

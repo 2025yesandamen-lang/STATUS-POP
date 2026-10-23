@@ -141,7 +141,7 @@ export async function exportFlyerToDataUrl(
   // 4. Preload QR code if watermark is enabled
   let qrImgObj: HTMLImageElement | null = null;
   if (hasWatermark) {
-    const qrUrl = `https://statuspop.ng/r/${referralCode}?src=qr`;
+    const qrUrl = `https://status-pop.vercel.app/r/${referralCode}?src=qr`;
     const qrDataUrl = await generateQrDataUrl(qrUrl);
     if (qrDataUrl) {
       qrImgObj = await new Promise((resolve) => {
@@ -380,7 +380,7 @@ export async function exportFlyerToDataUrl(
 
       ctx.font = '500 24px "Inter", sans-serif';
       ctx.fillStyle = '#FFC93C';
-      ctx.fillText(`Scan QR or visit: statuspop.ng/r/${referralCode}`, 180, stripY + 85);
+      ctx.fillText(`Scan QR or visit: status-pop.vercel.app/r/${referralCode}`, 180, stripY + 85);
 
       ctx.font = 'normal 20px "Inter", sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';

@@ -198,19 +198,51 @@ function MainContent() {
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const publicShopSlug = typeof window === 'undefined'
+    ? null
+    : window.location.pathname.match(/^\/shop\/([a-z0-9-]+)\/?$/i)?.[1]?.toLowerCase() ?? null;
 
   // App navigation state: default is 'home' so users see the rich landing banner first
-  const [currentView, setCurrentView] = useState<'home' | 'create' | 'shop' | 'admin' | 'dev_templates' | 'events' | 'whatsapp_dp'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'create' | 'shop' | 'admin' | 'dev_templates' | 'events' | 'whatsapp_dp'>(() => publicShopSlug ? 'shop' : 'home');
   const [currentStep, setCurrentStep] = useState<number>(1);
 
   // Vendor & storage state
   const [vendor, setVendor] = useState<VendorProfile>(getVendorProfile());
   const [products, setProducts] = useState<ProductItem[]>(getProducts());
+  const [publicShop, setPublicShop] = useState<{ vendor: VendorProfile; products: ProductItem[] } | null>(null);
+  const [publicShopError, setPublicShopError] = useState<string | null>(null);
+  const [isLoadingPublicShop, setIsLoadingPublicShop] = useState(Boolean(publicShopSlug));
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [isMiniProfileModalOpen, setIsMiniProfileModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!publicShopSlug) return;
+    let cancelled = false;
+    const loadPublicShop = async () => {
+      try {
+        const response = await fetch(`/api/public/shop/${encodeURIComponent(publicShopSlug)}`);
+        if (!response.ok) {
+          const payload = await response.json() as { message?: string };
+          throw new Error(payload.message || 'Unable to load this shop.');
+        }
+        const data = await response.json() as { vendor: VendorProfile; products: ProductItem[] };
+        if (!cancelled) setPublicShop(data);
+      } catch (error) {
+        if (!cancelled) {
+          setPublicShopError(error instanceof Error ? error.message : 'Unable to load this shop.');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPublicShop(false);
+      }
+    };
+    void loadPublicShop();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicShopSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -658,7 +690,7 @@ function MainContent() {
   return (
     <div className="min-h-screen min-h-[100dvh] bg-[#FFF9EC] dark:bg-[#0F1318] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans">
       {/* Top Navbar matching the reference design */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#1A202C]/95 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800">
+      {!publicShopSlug && <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#1A202C]/95 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Home button if not on Home view */}
@@ -786,11 +818,29 @@ function MainContent() {
             </button>
           </div>
         </div>
-      </header>
+      </header>}
 
       {/* Main View Router */}
       <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center p-6 text-sm text-gray-500" role="status">Loading…</div>}>
-      {currentView === 'home' ? (
+      {publicShopSlug ? (
+        isLoadingPublicShop ? (
+          <div className="flex min-h-screen items-center justify-center text-sm text-gray-500" role="status">Loading shop…</div>
+        ) : publicShopError || !publicShop ? (
+          <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6 text-center dark:bg-[#0F1318]">
+            <div className="max-w-md">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Shop unavailable</h1>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {publicShopError || 'This shop could not be found.'}
+              </p>
+              <a href="/" className="mt-5 inline-block rounded-xl bg-[#0B6B3A] px-4 py-2 text-sm font-bold text-white">
+                Visit StatusPop
+              </a>
+            </div>
+          </main>
+        ) : (
+          <PublicShop vendor={publicShop.vendor} products={publicShop.products} />
+        )
+      ) : currentView === 'home' ? (
         <HomePage
           userPlan={vendor.plan}
           onStartCreate={(sectorKey) => handleStartCreate(sectorKey)}
@@ -1713,7 +1763,9 @@ function MainContent() {
         isOpen={isMiniProfileModalOpen}
         onClose={() => setIsMiniProfileModalOpen(false)}
         vendor={vendor}
+        products={products}
         onUpdateVendor={(updated) => setVendor(updated)}
+        onUpdateProducts={setProducts}
         onOpenStoreView={() => setCurrentView('shop')}
       />
 

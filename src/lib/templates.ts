@@ -131,7 +131,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#060A12',
@@ -276,7 +276,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#042F1A',
@@ -421,7 +421,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#1E0533',
@@ -566,7 +566,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#0B0F19',
@@ -714,7 +714,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#042F1A',
@@ -843,7 +843,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#080C14',
@@ -982,7 +982,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#131131',
@@ -1113,7 +1113,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#042F1A',
@@ -1243,7 +1243,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#150603',
@@ -1373,7 +1373,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#0B0D11',
@@ -1504,7 +1504,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#100E0D',
@@ -1635,7 +1635,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#500724',
@@ -1766,7 +1766,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#050B1B',
@@ -1897,7 +1897,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#1E0533',
@@ -2028,7 +2028,7 @@ export const TEMPLATES: FlyerTemplate[] = [
       {
         id: 'watermark',
         type: 'watermark',
-        text: 'Made with StatusPop | statuspop.ng/r/demo',
+        text: 'Made with StatusPop | status-pop.vercel.app/r/demo',
         fontFamily: 'Inter',
         fontSize: 24,
         fill: '#022C22',

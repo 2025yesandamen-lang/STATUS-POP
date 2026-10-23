@@ -201,6 +201,17 @@ export function saveVendorProfile(profile: VendorProfile): void {
   }
 }
 
+export async function saveAccountData(profile: VendorProfile, products: ProductItem[]): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (cloudSyncEnabled) {
+    const cloudProducts = await productsWithCloudImages(products);
+    await writePreparedAccountData(profile, cloudProducts);
+  } else {
+    writeProductsLocally(products);
+  }
+  writeVendorLocally(profile);
+}
+
 export function lockPlanToPhone(phone: string): VendorProfile {
   const profile = getVendorProfile();
   profile.phone = phone;

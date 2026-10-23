@@ -122,3 +122,4 @@ Import the repository into Vercel and use the included `vercel.json`. The fronte
 - **WhatsApp DP Creator**: Dedicated square profile picture generator with business badges, services, and phone number.
 - **Special Holiday Flyers**: Independence Day, Christmas, New Year, Easter, Eid, and Customer Appreciation cards.
 - **Online payments**: Server-side Paystack initialization, verification, signed webhooks, and PostgreSQL-backed entitlements. Requires production secrets/database configuration; shop orders use a direct WhatsApp handoff and are not stored by this app.
+- **Public mini shops**: Signed-in vendors can share `https://status-pop.vercel.app/shop/<store-slug>`. Shop profiles and published products load from PostgreSQL; shop pages stay available independently of Day Pass or Pro flyer-plan expiry. Unpublished products and bank/payment details are not shown publicly.

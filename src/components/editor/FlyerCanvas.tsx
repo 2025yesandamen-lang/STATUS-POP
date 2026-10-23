@@ -53,7 +53,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
   // Generate QR Code data URL for preview
   useEffect(() => {
     if (showWatermark) {
-      QRCode.toDataURL(`https://statuspop.ng/r/${referralCode}?src=qr`, {
+      QRCode.toDataURL(`https://status-pop.vercel.app/r/${referralCode}?src=qr`, {
         margin: 1,
         width: 128,
       }).then((url) => setQrDataUrl(url));
@@ -326,7 +326,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
 
           ctx.font = '500 24px "Inter", sans-serif';
           ctx.fillStyle = '#FFC93C';
-          ctx.fillText(`Scan QR or visit: statuspop.ng/r/${referralCode}`, 180, stripY + 85);
+          ctx.fillText(`Scan QR or visit: status-pop.vercel.app/r/${referralCode}`, 180, stripY + 85);
 
           ctx.font = 'normal 20px "Inter", sans-serif';
           ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';

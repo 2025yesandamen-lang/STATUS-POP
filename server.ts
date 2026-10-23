@@ -315,7 +315,9 @@ function sanitizeVendorProfile(input: unknown, userId: string, email: string): V
   return {
     id: userId,
     businessName: typeof profile.businessName === 'string' ? profile.businessName.slice(0, 120) : '',
-    shopSlug: typeof profile.shopSlug === 'string' ? profile.shopSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 80) : '',
+    shopSlug: typeof profile.shopSlug === 'string'
+      ? profile.shopSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80).replace(/-+$/g, '')
+      : '',
     phone: typeof profile.phone === 'string' ? profile.phone.slice(0, 32) : '',
     whatsappNumber: typeof profile.whatsappNumber === 'string' ? profile.whatsappNumber.slice(0, 32) : '',
     email,
@@ -380,6 +382,57 @@ app.get('/api/vendor/session', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/public/shop/:slug', async (req: Request, res: Response): Promise<void> => {
+  const slug = req.params.slug.toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    res.status(404).json({ error: 'shop_not_found', message: 'This shop link is invalid or unavailable.' });
+    return;
+  }
+  if (!databasePool) {
+    res.status(503).json({ error: 'shop_unavailable', message: 'This shop is temporarily unavailable.' });
+    return;
+  }
+  try {
+    await ensureVendorDataSchema();
+    const profiles = await databasePool.query(
+      `SELECT user_id, data FROM vendor_profiles WHERE data->>'shopSlug' = $1 LIMIT 2`,
+      [slug]
+    );
+    if (profiles.rows.length === 0) {
+      res.status(404).json({ error: 'shop_not_found', message: 'This shop could not be found.' });
+      return;
+    }
+    if (profiles.rows.length > 1) {
+      res.status(409).json({ error: 'shop_slug_conflict', message: 'This shop link is unavailable. Ask the owner to choose a different shop URL.' });
+      return;
+    }
+    const { user_id: userId, data } = profiles.rows[0] as { user_id: string; data: Partial<VendorProfile> };
+    const profile = sanitizeVendorProfile(data, 'public-shop', '');
+    profile.shopSlug = slug;
+    profile.referralCode = '';
+    profile.referredBy = undefined;
+    profile.flyersCreatedToday = 0;
+    profile.lastFlyerDate = '';
+    profile.lastDailyReminderDate = '';
+    profile.dailyReminderEnabled = true;
+    profile.dailyReminderTime = '08:00';
+    const productResult = await databasePool.query(
+      `SELECT data FROM vendor_products
+       WHERE user_id = $1 AND data->>'isPublished' = 'true'
+       ORDER BY updated_at DESC`,
+      [userId]
+    );
+    const products = productResult.rows
+      .map((row) => sanitizeProduct(row.data))
+      .filter((product): product is ProductItem => product !== null && product.isPublished);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ vendor: profile, products });
+  } catch (error) {
+    console.error('Public shop lookup failed:', error);
+    res.status(503).json({ error: 'shop_unavailable', message: 'This shop is temporarily unavailable.' });
+  }
+});
+
 app.get('/api/vendor/data', async (req: Request, res: Response): Promise<void> => {
   const userId = await requireVendor(req, res);
   if (!userId) return;
@@ -425,9 +478,21 @@ app.put('/api/vendor/data', async (req: Request, res: Response): Promise<void> =
   const profile = sanitizeVendorProfile(req.body?.profile, userId, user.email);
   let client: PoolClient | undefined;
   try {
+    await ensureVendorDataSchema();
+    if (profile.shopSlug) {
+      const existingShop = await databasePool!.query(
+        `SELECT user_id FROM vendor_profiles
+         WHERE data->>'shopSlug' = $1 AND user_id <> $2
+         LIMIT 1`,
+        [profile.shopSlug, userId]
+      );
+      if (existingShop.rowCount) {
+        res.status(409).json({ error: 'shop_slug_taken', message: 'That shop URL is already in use. Choose a different store slug.' });
+        return;
+      }
+    }
     const transactionClient = await databasePool!.connect();
     client = transactionClient;
-    await ensureVendorDataSchema();
     await transactionClient.query('BEGIN');
     await transactionClient.query(
       `INSERT INTO vendor_profiles (user_id, data) VALUES ($1, $2::jsonb)
@@ -834,7 +899,7 @@ async function callOpenRouterChat(systemPrompt: string, userPrompt: string): Pro
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': process.env.APP_URL || 'https://statuspop.ng',
+        'HTTP-Referer': process.env.APP_URL || 'https://status-pop.vercel.app/',
         'X-Title': 'StatusPop Nigeria',
       },
       body: JSON.stringify({

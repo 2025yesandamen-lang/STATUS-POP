@@ -239,7 +239,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               </p>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-amber-900/60">
-              <span className="text-[11px] font-bold text-[#FFC93C]">statuspop.ng/shop/[your-name]</span>
+              <span className="text-[11px] font-bold text-[#FFC93C]">status-pop.vercel.app/shop/[your-name]</span>
               <span className="text-xs font-extrabold text-white flex items-center gap-1">
                 <span>See My Store</span>
                 <ArrowRight className="w-3.5 h-3.5" />

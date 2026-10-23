@@ -75,7 +75,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
 
   const generateSalesCaption = (): string => {
     const viralCaption = hasWatermark
-      ? `\n\nMade with StatusPop: statuspop.ng/r/${referralCode}?src=status`
+      ? `\n\nMade with StatusPop: status-pop.vercel.app/r/${referralCode}?src=status`
       : '';
     return (
       `*${userData.headline}*\n\n` +

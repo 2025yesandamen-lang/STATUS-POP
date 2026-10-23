@@ -1047,7 +1047,7 @@ export async function exportEventFlyerToDataUrl(
   ctx.textAlign = 'center';
   const cleanBiz = data.businessName.toLowerCase().replace(/[^a-z0-9]/g, '');
   ctx.fillText(
-    `${data.website || 'www.statuspop.ng'}  |  info@${cleanBiz || 'store'}.ng  |  @${cleanBiz || 'statuspop'}`,
+    `${data.website || 'status-pop.vercel.app'}  |  info@${cleanBiz || 'store'}.ng  |  @${cleanBiz || 'statuspop'}`,
     width / 2,
     footY + 23
   );
@@ -1063,7 +1063,7 @@ export async function exportEventFlyerToDataUrl(
     ctx.fillStyle = '#FFC93C';
     ctx.fillRect(0, wmY, width, 4);
 
-    const qrUrl = `https://statuspop.ng/r/${referralCode}?src=qr_event`;
+    const qrUrl = `https://status-pop.vercel.app/r/${referralCode}?src=qr_event`;
     const qrData = await QRCode.toDataURL(qrUrl, { margin: 1, width: 100 });
     const qrImg = await new Promise<HTMLImageElement>((res) => {
       const q = new Image();
@@ -1081,7 +1081,7 @@ export async function exportEventFlyerToDataUrl(
 
     ctx.fillStyle = '#FFC93C';
     ctx.font = '500 20px "Inter", sans-serif';
-    ctx.fillText(`Scan or visit: statuspop.ng/r/${referralCode}`, 150, wmY + 75);
+    ctx.fillText(`Scan or visit: status-pop.vercel.app/r/${referralCode}`, 150, wmY + 75);
 
     ctx.font = '16px "Inter", sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';

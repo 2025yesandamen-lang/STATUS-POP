@@ -24,7 +24,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { VendorProfile, ProductItem } from '../../types/index.ts';
-import { saveVendorProfile, saveProducts, getProducts } from '../../lib/storage.ts';
+import { saveAccountData } from '../../lib/storage.ts';
 import { formatNaira, formatWhatsAppPhone } from '../../lib/format.ts';
 import { getNigerianBanks, resolveBankAccount, createPaystackSubaccount } from '../../lib/banks.ts';
 import {
@@ -38,7 +38,9 @@ interface MiniProfileExplainerModalProps {
   isOpen: boolean;
   onClose: () => void;
   vendor: VendorProfile;
+  products: ProductItem[];
   onUpdateVendor: (updated: VendorProfile) => void;
+  onUpdateProducts: (updated: ProductItem[]) => void;
   onOpenStoreView: () => void;
   onTriggerTestReminder?: () => void;
 }
@@ -47,7 +49,9 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
   isOpen,
   onClose,
   vendor,
+  products,
   onUpdateVendor,
+  onUpdateProducts,
   onOpenStoreView,
   onTriggerTestReminder,
 }) => {
@@ -73,6 +77,7 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
   const [paystackSubaccount, setPaystackSubaccount] = useState(vendor.paystackSubaccountCode || '');
   const [isVerifyingBank, setIsVerifyingBank] = useState(false);
   const [isCreatingSubaccount, setIsCreatingSubaccount] = useState(false);
+  const [isSavingProducts, setIsSavingProducts] = useState(false);
 
   // Daily Status Reminder fields
   const [reminderEnabled, setReminderEnabled] = useState(vendor.dailyReminderEnabled !== false);
@@ -80,9 +85,16 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
 
   if (!isOpen) return null;
 
-  const publicUrl = `https://statuspop.ng/shop/${vendor.shopSlug}`;
+  const publicUrl = vendor.shopSlug
+    ? `${window.location.origin}/shop/${encodeURIComponent(vendor.shopSlug)}`
+    : '';
 
   const handleCopyLink = async () => {
+    if (!publicUrl) {
+      showToast('Add a shop URL first', 'Choose a store slug in Edit Info before copying your public link.', 'error');
+      setIsEditing(true);
+      return;
+    }
     try {
       await navigator.clipboard.writeText(publicUrl);
       setCopiedLink(true);
@@ -150,12 +162,12 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
     }
   };
 
-  const handleSaveAll = (e: React.FormEvent) => {
+  const handleSaveAll = async (e: React.FormEvent) => {
     e.preventDefault();
     const updated: VendorProfile = {
       ...vendor,
       businessName: businessName.trim() || vendor.businessName,
-      shopSlug: shopSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-') || vendor.shopSlug,
+      shopSlug: shopSlug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80).replace(/-+$/g, '') || vendor.shopSlug,
       phone: phone.trim() || vendor.phone,
       whatsappNumber: whatsappNumber.trim() || vendor.whatsappNumber,
       bio: bio.trim(),
@@ -175,10 +187,31 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
       dailyReminderTime: reminderTime,
     };
 
-    saveVendorProfile(updated);
-    onUpdateVendor(updated);
-    setIsEditing(false);
-    showToast('Settings Saved!', 'Bank split payments & daily reminder updated live.', 'success');
+    try {
+      await saveAccountData(updated, products);
+      onUpdateVendor(updated);
+      setShopSlug(updated.shopSlug);
+      setIsEditing(false);
+      showToast('Settings Saved!', 'Your store settings were saved.', 'success');
+    } catch (error) {
+      showToast('Could not save settings', error instanceof Error ? error.message : 'Please try again.', 'error');
+    }
+  };
+
+  const handleToggleProductPublished = async (productId: string, isPublished: boolean) => {
+    const updatedProducts = products.map((product) => (
+      product.id === productId ? { ...product, isPublished } : product
+    ));
+    setIsSavingProducts(true);
+    try {
+      await saveAccountData(vendor, updatedProducts);
+      onUpdateProducts(updatedProducts);
+      showToast('Product visibility updated', '', 'success');
+    } catch (error) {
+      showToast('Could not update product', error instanceof Error ? error.message : 'Please try again.', 'error');
+    } finally {
+      setIsSavingProducts(false);
+    }
   };
 
   const handleTestReminder = async () => {
@@ -272,8 +305,9 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
                 💡 What is StatusPop Mini Profile?
               </span>
               <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-xs">
-                Your 24/7 web catalogue with your verified phone, products, and direct WhatsApp
-                orders. Customers order with 1 tap, and payments settle directly to you.
+                Your web catalogue with your phone, published products, and direct WhatsApp orders.
+                Customers order with 1 tap. Your shop link remains available after a Day Pass or Pro
+                flyer plan expires.
               </p>
             </div>
 
@@ -284,7 +318,7 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
               </span>
               <div className="flex items-center gap-2 bg-white dark:bg-gray-900 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700">
                 <span className="text-xs font-mono font-bold text-[#0B6B3A] dark:text-green-400 truncate flex-1">
-                  {publicUrl}
+                  {publicUrl || 'Set a store URL in Edit Info to create your link'}
                 </span>
                 <button
                   type="button"
@@ -326,6 +360,38 @@ export const MiniProfileExplainerModal: React.FC<MiniProfileExplainerModalProps>
                   {isEditing ? 'Close Edit' : 'Edit Info'}
                 </Button>
               </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 space-y-2">
+              <div>
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+                  Published products
+                </span>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Select which products customers can see in your public shop.
+                </p>
+              </div>
+              {products.length === 0 ? (
+                <p className="text-xs text-gray-500">Create a product flyer first to add products to your catalogue.</p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {products.map((product) => (
+                    <label
+                      key={product.id}
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={product.isPublished === true}
+                        onChange={(event) => handleToggleProductPublished(product.id, event.target.checked)}
+                        disabled={isSavingProducts}
+                        className="accent-[#0B6B3A]"
+                      />
+                      <span className="truncate">{product.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Inline Store Editor Form */}
