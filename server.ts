@@ -1,11 +1,15 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { GoogleGenAI, Type } from '@google/genai';
-
-dotenv.config();
+import { toNodeHandler } from 'better-auth/node';
+import { v2 as cloudinary } from 'cloudinary';
+import type { PoolClient } from 'pg';
+import type { ProductItem, VendorProfile } from './src/types/index.ts';
+import { databasePool } from './src/lib/database.ts';
+import { getAuth, getAuthenticatedUser } from './src/lib/auth.ts';
 
 const {
   createPendingPayment,
@@ -28,9 +32,7 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const ADMIN_SESSION_COOKIE = 'statuspop_admin_session';
-const VENDOR_SESSION_COOKIE = 'statuspop_vendor_session';
 const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
-const VENDOR_SESSION_TTL_SECONDS = 365 * 24 * 60 * 60;
 const adminAuthConfigured = ADMIN_PASSWORD.length >= 12 && SESSION_SECRET.length >= 32;
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET || PAYSTACK_SECRET_KEY;
@@ -39,6 +41,13 @@ const validAppUrl = /^https:\/\//i.test(appUrl);
 const paymentsConfigured = Boolean(
   isPaymentStorageConfigured() && SESSION_SECRET.length >= 32 && PAYSTACK_SECRET_KEY && PAYSTACK_WEBHOOK_SECRET && validAppUrl
 );
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
 function isPaymentsConfigured(): boolean {
   return paymentsConfigured;
@@ -55,6 +64,38 @@ async function isPaymentsReady(): Promise<boolean> {
   }
 }
 
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (process.env.VERCEL) {
+    const routedPath = req.query.__statuspopPath;
+    if (typeof routedPath === 'string' && routedPath.startsWith('/')) {
+      const incomingUrl = new URL(req.url || '/', 'http://localhost');
+      incomingUrl.searchParams.delete('__statuspopPath');
+      req.url = `${routedPath}${incomingUrl.search}`;
+    }
+  }
+  next();
+});
+
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+app.all('/api/auth/*', (req: Request, res: Response, next: NextFunction) => {
+  const auth = getAuth();
+  if (!auth) {
+    res.status(503).json({
+      error: 'authentication_not_configured',
+      message: 'Set DATABASE_URL and a 32-character BETTER_AUTH_SECRET to enable accounts.',
+    });
+    return;
+  }
+  return toNodeHandler(auth)(req, res);
+});
+
 // Increased limit for high-res mobile photos
 app.use(express.json({
   limit: '20mb',
@@ -65,15 +106,6 @@ app.use(express.json({
   },
 }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
-
-// 1. Security Headers Hardening
-app.use((_req: Request, res: Response, next: NextFunction) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
 
 function getCookie(req: Request, name: string): string | null {
   const cookies = req.headers.cookie?.split(';') || [];
@@ -124,49 +156,23 @@ function setAdminSessionCookie(res: Response, value: string, maxAge: number): vo
   });
 }
 
-function getSignedSessionId(req: Request, cookieName: string): string | null {
-  if (SESSION_SECRET.length < 32) return null;
-  const token = getCookie(req, cookieName);
-  if (!token) return null;
-  const [payload, signature] = token.split('.');
-  if (!payload || !signature) return null;
-  const expected = signSession(payload);
-  const receivedBytes = Buffer.from(signature);
-  const expectedBytes = Buffer.from(expected);
-  if (receivedBytes.length !== expectedBytes.length || !timingSafeEqual(receivedBytes, expectedBytes)) return null;
+async function requireVendor(req: Request, res: Response): Promise<string | null> {
+  if (!getAuth()) {
+    res.status(503).json({ error: 'authentication_not_configured', message: 'Account sign-in is not configured.' });
+    return null;
+  }
   try {
-    const value = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: number; id?: string };
-    return typeof value.exp === 'number' && value.exp > Date.now() && typeof value.id === 'string' ? value.id : null;
-  } catch {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'account_sign_in_required', message: 'Sign in to continue.' });
+      return null;
+    }
+    return user.id;
+  } catch (error) {
+    console.error('Could not verify account session:', error);
+    res.status(503).json({ error: 'session_unavailable', message: 'Could not verify your account. Try again.' });
     return null;
   }
-}
-
-function issueVendorSession(res: Response, vendorId: string): void {
-  const payload = Buffer.from(JSON.stringify({
-    exp: Date.now() + VENDOR_SESSION_TTL_SECONDS * 1000,
-    id: vendorId,
-  })).toString('base64url');
-  res.cookie(VENDOR_SESSION_COOKIE, `${payload}.${signSession(payload)}`, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: VENDOR_SESSION_TTL_SECONDS * 1000,
-  });
-}
-
-function getVendorSessionId(req: Request): string | null {
-  return getSignedSessionId(req, VENDOR_SESSION_COOKIE);
-}
-
-function requireVendor(req: Request, res: Response): string | null {
-  const vendorId = getVendorSessionId(req);
-  if (!vendorId) {
-    res.status(401).json({ error: 'vendor_session_required', message: 'Refresh the app to start a vendor session.' });
-    return null;
-  }
-  return vendorId;
 }
 
 app.post('/api/admin/login', async (req: Request, res: Response) => {
@@ -210,27 +216,287 @@ app.get('/api/admin/status', requireAdmin, async (_req: Request, res: Response) 
   res.json({ dataStoreConfigured: isPaymentStorageConfigured(), paymentsConfigured: await isPaymentsReady() });
 });
 
+let vendorDataSchemaPromise: Promise<void> | null = null;
+
+async function ensureVendorDataSchema(): Promise<void> {
+  if (!databasePool) throw new Error('DATABASE_URL is not configured.');
+  if (!vendorDataSchemaPromise) {
+    vendorDataSchemaPromise = databasePool.query(`
+      CREATE TABLE IF NOT EXISTS vendor_profiles (
+        user_id TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS vendor_products (
+        user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, item_id)
+      );
+      CREATE TABLE IF NOT EXISTS vendor_media (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+        public_id TEXT NOT NULL UNIQUE,
+        secure_url TEXT NOT NULL,
+        purpose TEXT NOT NULL CHECK (purpose IN ('product', 'flyer')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS vendor_media_user_created_idx
+        ON vendor_media (user_id, created_at DESC);
+    `).then(() => undefined).catch((error) => {
+      vendorDataSchemaPromise = null;
+      throw error;
+    });
+  }
+  await vendorDataSchemaPromise;
+}
+
+function sanitizeVendorProfile(input: unknown, userId: string, email: string): VendorProfile {
+  const profile = input && typeof input === 'object' ? input as Partial<VendorProfile> : {};
+  return {
+    id: userId,
+    businessName: typeof profile.businessName === 'string' ? profile.businessName.slice(0, 120) : '',
+    shopSlug: typeof profile.shopSlug === 'string' ? profile.shopSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 80) : '',
+    phone: typeof profile.phone === 'string' ? profile.phone.slice(0, 32) : '',
+    whatsappNumber: typeof profile.whatsappNumber === 'string' ? profile.whatsappNumber.slice(0, 32) : '',
+    email,
+    bio: typeof profile.bio === 'string' ? profile.bio.slice(0, 1000) : '',
+    address: typeof profile.address === 'string' ? profile.address.slice(0, 300) : '',
+    referralCode: typeof profile.referralCode === 'string' ? profile.referralCode.slice(0, 80) : '',
+    referredBy: typeof profile.referredBy === 'string' ? profile.referredBy.slice(0, 80) : undefined,
+    plan: 'free',
+    flyersCreatedToday: Number.isInteger(profile.flyersCreatedToday) ? Math.max(0, Math.min(10000, profile.flyersCreatedToday || 0)) : 0,
+    lastFlyerDate: typeof profile.lastFlyerDate === 'string' ? profile.lastFlyerDate.slice(0, 10) : '',
+    isPhoneVerified: false,
+    isBankVerified: false,
+    dailyReminderEnabled: profile.dailyReminderEnabled !== false,
+    dailyReminderTime: typeof profile.dailyReminderTime === 'string' ? profile.dailyReminderTime.slice(0, 5) : '08:00',
+    lastDailyReminderDate: typeof profile.lastDailyReminderDate === 'string' ? profile.lastDailyReminderDate.slice(0, 10) : '',
+  };
+}
+
+function sanitizeProduct(input: unknown): ProductItem | null {
+  if (!input || typeof input !== 'object') return null;
+  const product = input as Partial<ProductItem>;
+  if (
+    typeof product.id !== 'string' || !product.id || product.id.length > 120 ||
+    typeof product.name !== 'string' || product.name.length > 200 ||
+    typeof product.image !== 'string' || product.image.length > 2048 ||
+    !product.image.startsWith('https://') ||
+    typeof product.price !== 'number' || !Number.isFinite(product.price) || product.price < 0
+  ) return null;
+  return {
+    id: product.id,
+    name: product.name,
+    description: typeof product.description === 'string' ? product.description.slice(0, 2000) : '',
+    price: product.price,
+    originalPrice: typeof product.originalPrice === 'number' && Number.isFinite(product.originalPrice) ? product.originalPrice : undefined,
+    category: typeof product.category === 'string' ? product.category.slice(0, 100) : '',
+    image: product.image,
+    isPublished: product.isPublished === true,
+    inStock: product.inStock !== false,
+    stockCount: Number.isInteger(product.stockCount) ? product.stockCount : undefined,
+    createdAt: typeof product.createdAt === 'string' ? product.createdAt : new Date().toISOString(),
+  };
+}
+
 app.get('/api/vendor/session', async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
-  if (SESSION_SECRET.length < 32) {
-    res.status(503).json({ error: 'vendor_session_unavailable' });
-    return;
-  }
-  let vendorId = getVendorSessionId(req);
-  if (!vendorId) {
-    vendorId = randomBytes(18).toString('base64url');
-    issueVendorSession(res, vendorId);
-  }
-  if (!isPaymentStorageConfigured()) {
-    res.json({ vendorId, plan: 'free', planExpiresAt: null, paymentsConfigured: false });
+  if (!getAuth()) {
+    res.json({ authenticated: false, plan: 'free', planExpiresAt: null, paymentsConfigured: false, authConfigured: false });
     return;
   }
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      res.json({ authenticated: false, plan: 'free', planExpiresAt: null, paymentsConfigured: await isPaymentsReady(), authConfigured: true });
+      return;
+    }
+    const vendorId = user.id;
     const entitlement = await getVendorEntitlement(vendorId);
-    res.json({ vendorId, ...entitlement, paymentsConfigured: await isPaymentsReady() });
+    res.json({ authenticated: true, vendorId, email: user.email, ...entitlement, paymentsConfigured: await isPaymentsReady(), authConfigured: true });
   } catch (error) {
-    console.error('Vendor entitlement lookup failed:', error);
-    res.status(503).json({ error: 'entitlement_unavailable', message: 'Could not verify plan status.' });
+    console.error('Vendor account lookup failed:', error);
+    res.status(503).json({ error: 'account_unavailable', message: 'Could not verify your account status.' });
+  }
+});
+
+app.get('/api/vendor/data', async (req: Request, res: Response): Promise<void> => {
+  const userId = await requireVendor(req, res);
+  if (!userId) return;
+  try {
+    await ensureVendorDataSchema();
+    const [profileResult, productResult] = await Promise.all([
+      databasePool!.query('SELECT data FROM vendor_profiles WHERE user_id = $1', [userId]),
+      databasePool!.query('SELECT data FROM vendor_products WHERE user_id = $1 ORDER BY updated_at DESC', [userId]),
+    ]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      profile: profileResult.rows[0]?.data ?? null,
+      products: productResult.rows.map((row) => row.data as ProductItem),
+    });
+  } catch (error) {
+    console.error('Vendor data lookup failed:', error);
+    res.status(503).json({ error: 'vendor_data_unavailable', message: 'Could not load your saved account data.' });
+  }
+});
+
+app.put('/api/vendor/data', async (req: Request, res: Response): Promise<void> => {
+  const userId = await requireVendor(req, res);
+  if (!userId) return;
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser(req);
+  } catch (error) {
+    console.error('Could not verify vendor data owner:', error);
+    res.status(503).json({ error: 'session_unavailable', message: 'Could not verify your account. Try again.' });
+    return;
+  }
+  if (!user) return;
+  const inputProducts = req.body?.products;
+  if (!Array.isArray(inputProducts) || inputProducts.length > 100) {
+    res.status(400).json({ error: 'invalid_products', message: 'A maximum of 100 products can be saved at once.' });
+    return;
+  }
+  const products = inputProducts.map(sanitizeProduct);
+  if (products.some((product) => product === null)) {
+    res.status(400).json({ error: 'invalid_product', message: 'Product details or image URL are invalid. Upload images to Cloudinary first.' });
+    return;
+  }
+  const profile = sanitizeVendorProfile(req.body?.profile, userId, user.email);
+  let client: PoolClient | undefined;
+  try {
+    const transactionClient = await databasePool!.connect();
+    client = transactionClient;
+    await ensureVendorDataSchema();
+    await transactionClient.query('BEGIN');
+    await transactionClient.query(
+      `INSERT INTO vendor_profiles (user_id, data) VALUES ($1, $2::jsonb)
+       ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+      [userId, JSON.stringify(profile)]
+    );
+    await transactionClient.query('DELETE FROM vendor_products WHERE user_id = $1', [userId]);
+    for (const product of products as ProductItem[]) {
+      await transactionClient.query(
+        `INSERT INTO vendor_products (user_id, item_id, data) VALUES ($1, $2, $3::jsonb)`,
+        [userId, product.id, JSON.stringify(product)]
+      );
+    }
+    await transactionClient.query('COMMIT');
+    res.json({ saved: true, profile, products });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK');
+    console.error('Vendor data save failed:', error);
+    res.status(503).json({ error: 'vendor_data_save_failed', message: 'Could not save your account data.' });
+  } finally {
+    client?.release();
+  }
+});
+
+function getCloudinaryUserFolder(userId: string, purpose: 'product' | 'flyer'): string {
+  const userFolder = createHmac('sha256', process.env.BETTER_AUTH_SECRET || SESSION_SECRET || 'statuspop-media')
+    .update(userId)
+    .digest('hex')
+    .slice(0, 24);
+  return `statuspop/${userFolder}/${purpose}`;
+}
+
+function isCloudinaryConfigured(): boolean {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+app.post('/api/media/signature', async (req: Request, res: Response): Promise<void> => {
+  const userId = await requireVendor(req, res);
+  if (!userId) return;
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(`media:${userId}:${ip}`, 15, 60 * 1000)) {
+    res.status(429).json({ error: 'media_rate_limited', message: 'Too many image uploads. Wait a minute and try again.' });
+    return;
+  }
+  if (!isCloudinaryConfigured() || !databasePool) {
+    res.status(503).json({ error: 'media_storage_not_configured', message: 'Cloudinary and DATABASE_URL must be configured to save media.' });
+    return;
+  }
+  const purpose = req.body?.purpose;
+  if (purpose !== 'product' && purpose !== 'flyer') {
+    res.status(400).json({ error: 'invalid_media_purpose', message: 'Choose a valid media purpose.' });
+    return;
+  }
+  try {
+    const folder = getCloudinaryUserFolder(userId, purpose);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const publicId = randomBytes(16).toString('hex');
+    const signedParameters = { folder, public_id: publicId, timestamp };
+    res.json({
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      timestamp,
+      folder,
+      publicId,
+      signature: cloudinary.utils.api_sign_request(signedParameters, process.env.CLOUDINARY_API_SECRET!),
+    });
+  } catch (error) {
+    console.error('Could not create Cloudinary upload signature:', error);
+    res.status(503).json({ error: 'media_signature_failed', message: 'Could not prepare this image upload.' });
+  }
+});
+
+app.post('/api/media/confirm', async (req: Request, res: Response): Promise<void> => {
+  const userId = await requireVendor(req, res);
+  if (!userId) return;
+  if (!isCloudinaryConfigured() || !databasePool) {
+    res.status(503).json({ error: 'media_storage_not_configured', message: 'Cloudinary and DATABASE_URL must be configured to save media.' });
+    return;
+  }
+  const { purpose, publicId, secureUrl, assetId } = req.body || {};
+  if (
+    (purpose !== 'product' && purpose !== 'flyer') ||
+    typeof publicId !== 'string' ||
+    typeof secureUrl !== 'string' ||
+    typeof assetId !== 'string' ||
+    assetId.length > 200 ||
+    !publicId.startsWith(`${getCloudinaryUserFolder(userId, purpose)}/`) ||
+    !/^[a-zA-Z0-9/_-]{1,240}$/.test(publicId)
+  ) {
+    res.status(400).json({ error: 'invalid_media', message: 'Uploaded media details are invalid.' });
+    return;
+  }
+  try {
+    const url = new URL(secureUrl);
+    const validCloudinaryHost =
+      (url.hostname === 'res.cloudinary.com' && url.pathname.startsWith(`/${process.env.CLOUDINARY_CLOUD_NAME}/`)) ||
+      url.hostname === `${process.env.CLOUDINARY_CLOUD_NAME}.res.cloudinary.com`;
+    if (url.protocol !== 'https:' || !validCloudinaryHost) {
+      res.status(400).json({ error: 'invalid_media_url', message: 'The uploaded image URL is not a valid Cloudinary URL.' });
+      return;
+    }
+    const asset = await cloudinary.api.resource(publicId, { resource_type: 'image' });
+    if (asset.asset_id !== assetId || asset.secure_url !== secureUrl) {
+      res.status(400).json({ error: 'media_mismatch', message: 'The uploaded image could not be verified.' });
+      return;
+    }
+    await ensureVendorDataSchema();
+    const stored = await databasePool.query(
+      `INSERT INTO vendor_media (id, user_id, public_id, secure_url, purpose)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (public_id) DO UPDATE SET secure_url = EXCLUDED.secure_url
+       WHERE vendor_media.user_id = EXCLUDED.user_id
+       RETURNING id`,
+      [assetId, userId, publicId, secureUrl, purpose]
+    );
+    if (!stored.rowCount) {
+      res.status(409).json({ error: 'media_owner_mismatch', message: 'This image is already associated with another account.' });
+      return;
+    }
+    res.status(201).json({ saved: true });
+  } catch (error) {
+    console.error('Cloudinary media upload failed:', error);
+    res.status(503).json({ error: 'media_confirmation_failed', message: 'The upload could not be linked to your account.' });
   }
 });
 
@@ -245,13 +511,21 @@ app.post('/api/checkout', async (req: Request, res: Response): Promise<void> => 
     res.status(503).json({ error: 'payments_not_configured', message: 'Payments require DATABASE_URL, Paystack secret, SESSION_SECRET, and HTTPS APP_URL.' });
     return;
   }
-  const vendorId = requireVendor(req, res);
+  const vendorId = await requireVendor(req, res);
   if (!vendorId) return;
 
   const plan = req.body?.plan as PaidPlan;
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  if (!Object.hasOwn({ day_pass: true, pro: true }, plan) || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    res.status(400).json({ error: 'invalid_checkout', message: 'Choose a plan and provide a valid receipt email.' });
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser(req);
+  } catch (error) {
+    console.error('Could not load checkout account:', error);
+    res.status(503).json({ error: 'account_unavailable', message: 'Could not verify your email address.' });
+    return;
+  }
+  const email = user?.email || '';
+  if (!Object.hasOwn({ day_pass: true, pro: true }, plan) || !email || !user?.emailVerified) {
+    res.status(400).json({ error: 'invalid_checkout', message: 'Sign in with a verified email and choose a plan.' });
     return;
   }
 
@@ -304,7 +578,7 @@ app.get('/api/payments/verify/:reference', async (req: Request, res: Response): 
     res.status(503).json({ error: 'payments_not_configured' });
     return;
   }
-  const vendorId = requireVendor(req, res);
+  const vendorId = await requireVendor(req, res);
   if (!vendorId) return;
   const reference = req.params.reference;
   if (!/^[a-zA-Z0-9_-]{10,80}$/.test(reference)) {
@@ -1135,4 +1409,8 @@ async function startServer() {
   });
 }
 
-startServer();
+export default app;
+
+if (!process.env.VERCEL) {
+  void startServer();
+}

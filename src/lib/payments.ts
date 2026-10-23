@@ -1,5 +1,6 @@
-import { Pool, PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import { randomUUID } from 'crypto';
+import { databasePool } from './database.ts';
 
 export type PaidPlan = 'day_pass' | 'pro';
 
@@ -8,15 +9,7 @@ export const PAID_PLANS: Record<PaidPlan, { amountKobo: number; durationMs: numb
   pro: { amountKobo: 250000, durationMs: 30 * 24 * 60 * 60 * 1000 },
 };
 
-const pool = process.env.DATABASE_URL
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
-      max: Number(process.env.DATABASE_POOL_MAX || 10),
-      connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 30000,
-    })
-  : null;
+const pool = databasePool;
 
 let schemaPromise: Promise<void> | null = null;
 

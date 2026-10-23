@@ -35,6 +35,7 @@ import {
   Clock,
   Bell,
   MessageCircle,
+  CircleUserRound,
 } from 'lucide-react';
 import {
   FlyerTemplate,
@@ -43,6 +44,7 @@ import {
   VendorProfile,
   FlyerAspectRatio,
   SectorCategory,
+  UserPlan,
 } from './types/index.ts';
 import { TEMPLATES } from './lib/templates.ts';
 import { formatNaira, calculateDiscount } from './lib/format.ts';
@@ -64,6 +66,8 @@ import {
 import {
   getVendorProfile,
   getProducts,
+  synchronizeAccountData,
+  clearAccountDataCache,
   recordFlyerCreated,
   setReferralCookie,
 } from './lib/storage.ts';
@@ -75,12 +79,12 @@ import { Stepper, Step } from './components/ui/Stepper.tsx';
 import { ToastProvider, useToast } from './components/ui/Toast.tsx';
 import { CopyPanel } from './components/editor/CopyPanel.tsx';
 import { ExportBar } from './components/editor/ExportBar.tsx';
+import { AccountAccessModal } from './components/account/AccountAccessModal.tsx';
 const FlyerCanvas = lazy(() => import('./components/editor/FlyerCanvas.tsx').then((module) => ({ default: module.FlyerCanvas })));
 const PricingModal = lazy(() => import('./components/pricing/PricingModal.tsx').then((module) => ({ default: module.PricingModal })));
 const PublicShop = lazy(() => import('./components/shop/PublicShop.tsx').then((module) => ({ default: module.PublicShop })));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard.tsx').then((module) => ({ default: module.AdminDashboard })));
 const TemplateBrowser = lazy(() => import('./components/dev/TemplateBrowser.tsx').then((module) => ({ default: module.TemplateBrowser })));
-import { PhoneLockModal } from './components/vendor/PhoneLockModal.tsx';
 import { HomePage } from './components/home/HomePage.tsx';
 const SpecialEventsPage = lazy(() => import('./components/events/SpecialEventsPage.tsx').then((module) => ({ default: module.SpecialEventsPage })));
 const WhatsAppDPGenerator = lazy(() => import('./components/dp/WhatsAppDPGenerator.tsx').then((module) => ({ default: module.WhatsAppDPGenerator })));
@@ -203,7 +207,9 @@ function MainContent() {
   const [vendor, setVendor] = useState<VendorProfile>(getVendorProfile());
   const [products, setProducts] = useState<ProductItem[]>(getProducts());
   const [isPricingOpen, setIsPricingOpen] = useState(false);
-  const [isPhoneLockOpen, setIsPhoneLockOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
   const [isMiniProfileModalOpen, setIsMiniProfileModalOpen] = useState(false);
 
   useEffect(() => {
@@ -212,7 +218,30 @@ function MainContent() {
       try {
         const initialSession = await fetch('/api/vendor/session', { credentials: 'same-origin' });
         if (!initialSession.ok) return;
-        await initialSession.json();
+        const initialAccount = await initialSession.json() as {
+          authenticated?: boolean;
+          email?: string;
+          plan?: UserPlan;
+          planExpiresAt?: string | null;
+        };
+        if (!initialAccount.authenticated) {
+          if (new URLSearchParams(window.location.search).has('payment_reference') && !cancelled) {
+            setIsAccountOpen(true);
+            showToast('Sign in required', 'Sign in to the account used for checkout so we can verify the payment.', 'info');
+          }
+          return;
+        }
+        const accountData = await synchronizeAccountData();
+        if (!cancelled) {
+          setIsAuthenticated(true);
+          setAccountEmail(initialAccount.email || '');
+          setVendor({
+            ...accountData.profile,
+            plan: initialAccount.plan === 'pro' || initialAccount.plan === 'day_pass' ? initialAccount.plan : 'free',
+            planExpiresAt: initialAccount.planExpiresAt || undefined,
+          });
+          setProducts(accountData.products);
+        }
         const params = new URLSearchParams(window.location.search);
         const reference = params.get('payment_reference');
         if (reference) {
@@ -226,7 +255,7 @@ function MainContent() {
             await new Promise((resolve) => window.setTimeout(resolve, 2500));
           }
           if (paymentStatus === 'success') {
-            showToast('Payment verified', 'Your plan is active on this device.', 'success');
+            showToast('Payment verified', 'Your plan is active on your account.', 'success');
           } else if (paymentStatus === 'failed') {
             showToast('Payment not completed', 'No paid plan was activated.', 'error');
           } else {
@@ -249,12 +278,36 @@ function MainContent() {
           }));
         }
       } catch (error) {
-        if (!cancelled) console.warn('Could not refresh vendor entitlement:', error);
+        if (!cancelled) {
+          console.error('Could not refresh vendor account:', error);
+          showToast('Account sync unavailable', 'Your local draft remains available; try signing in again to sync.', 'error');
+        }
       }
     };
     void syncEntitlement();
     return () => { cancelled = true; };
   }, [showToast]);
+
+  const handleAccountAuthenticated = (account: {
+    email: string;
+    profile: VendorProfile;
+    products: ProductItem[];
+    plan: UserPlan;
+    planExpiresAt?: string;
+  }) => {
+    setIsAuthenticated(true);
+    setAccountEmail(account.email);
+    setVendor({ ...account.profile, plan: account.plan, planExpiresAt: account.planExpiresAt });
+    setProducts(account.products);
+  };
+
+  const handleAccountSignedOut = () => {
+    clearAccountDataCache();
+    setIsAuthenticated(false);
+    setAccountEmail('');
+    setVendor(getVendorProfile());
+    setProducts([]);
+  };
 
   // Image processing state
   const [isProcessingBg, setIsProcessingBg] = useState(false);
@@ -651,6 +704,16 @@ function MainContent() {
               <span>Go Pro</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => setIsAccountOpen(true)}
+              className="tap-target p-2 rounded-xl border bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-200 transition-colors"
+              title={isAuthenticated ? `Account: ${accountEmail}` : 'Sign in or create an account'}
+              aria-label={isAuthenticated ? 'Open account settings' : 'Sign in or create an account'}
+            >
+              <CircleUserRound className="w-4 h-4 text-[#0B6B3A]" />
+            </button>
+
             {/* WhatsApp DP Creator button */}
             <button
               onClick={() => setCurrentView(currentView === 'whatsapp_dp' ? 'home' : 'whatsapp_dp')}
@@ -736,7 +799,7 @@ function MainContent() {
           onOpenShop={() => setCurrentView('shop')}
           showAdmin
           onOpenAdmin={() => setCurrentView('admin')}
-          onOpenPhoneLock={() => setIsPhoneLockOpen(true)}
+          onOpenPhoneLock={() => isAuthenticated ? setIsMiniProfileModalOpen(true) : setIsAccountOpen(true)}
           onOpenEvents={() => setCurrentView('events')}
           onOpenDP={() => setCurrentView('whatsapp_dp')}
           onOpenMiniProfileModal={() => setIsMiniProfileModalOpen(true)}
@@ -1597,6 +1660,7 @@ function MainContent() {
                 userData={flyerData}
                 userPlan={vendor.plan}
                 referralCode={vendor.referralCode}
+                isAuthenticated={isAuthenticated}
                 onOpenUpgrade={() => setIsPricingOpen(true)}
               />
 
@@ -1630,14 +1694,18 @@ function MainContent() {
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
         currentPlan={vendor.plan}
+        isAuthenticated={isAuthenticated}
+        accountEmail={accountEmail}
+        onRequireAccount={() => setIsAccountOpen(true)}
       /></Suspense>
 
-      {/* Phone Lock Account Modal */}
-      <PhoneLockModal
-        isOpen={isPhoneLockOpen}
-        onClose={() => setIsPhoneLockOpen(false)}
-        vendor={vendor}
-        onVerified={(updated) => setVendor(updated)}
+      <AccountAccessModal
+        isOpen={isAccountOpen}
+        onClose={() => setIsAccountOpen(false)}
+        onAuthenticated={handleAccountAuthenticated}
+        onSignedOut={handleAccountSignedOut}
+        currentEmail={accountEmail}
+        isAuthenticated={isAuthenticated}
       />
 
       {/* Mini Profile & Store Explainer Modal */}

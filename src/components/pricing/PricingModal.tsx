@@ -10,26 +10,31 @@ export interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentPlan: UserPlan;
+  isAuthenticated: boolean;
+  accountEmail: string;
+  onRequireAccount: () => void;
 }
 
 export const PricingModal: React.FC<PricingModalProps> = ({
   isOpen,
   onClose,
   currentPlan,
+  isAuthenticated,
+  accountEmail,
+  onRequireAccount,
 }) => {
   const { showToast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<'day_pass' | 'pro'>('day_pass');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [email, setEmail] = useState('');
   const [paymentsAvailable, setPaymentsAvailable] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     fetch('/api/vendor/session', { credentials: 'same-origin' })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error('Payment service unavailable.')))
-      .then((session) => setPaymentsAvailable(Boolean(session.paymentsConfigured)))
+      .then((session) => setPaymentsAvailable(Boolean(session.paymentsConfigured && session.authenticated)))
       .catch(() => setPaymentsAvailable(false));
-  }, [isOpen]);
+  }, [isOpen, isAuthenticated]);
 
   const handlePaystackCheckout = async () => {
     setIsProcessing(true);
@@ -41,7 +46,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plan: selectedPlan,
-          email,
         }),
       });
 
@@ -73,19 +77,16 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Current plan: <strong>{currentPlan.replace('_', ' ')}</strong></p>
         </div>
 
-        <div>
-          <label htmlFor="payment-email" className="block text-sm font-semibold mb-1">Receipt email</label>
-          <input
-            id="payment-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            className="w-full px-3.5 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-base focus:ring-2 focus:ring-[#0B6B3A] outline-none"
-          />
-        </div>
+        {isAuthenticated ? (
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400">Receipt will be sent to {accountEmail}.</p>
+        ) : (
+          <div className="rounded-xl bg-amber-50 p-3 text-center text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+            Sign in or create an account before checkout. Your plan will be linked to your account.
+            <Button type="button" variant="outline" fullWidth className="mt-3" onClick={onRequireAccount}>
+              Sign in or create account
+            </Button>
+          </div>
+        )}
 
         {/* Plan Cards */}
         <div className="space-y-3">
@@ -195,11 +196,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           size="lg"
           fullWidth
           isLoading={isProcessing}
-          disabled={!paymentsAvailable || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
+          disabled={!isAuthenticated || !paymentsAvailable}
           onClick={handlePaystackCheckout}
           leftIcon={<Zap className="w-5 h-5 text-[#FFC93C]" />}
         >
-          {paymentsAvailable ? `Pay ${selectedPlan === 'day_pass' ? '₦500' : '₦2,500'} via Paystack` : 'Payment setup required'}
+          {!isAuthenticated ? 'Sign in to continue' : paymentsAvailable ? `Pay ${selectedPlan === 'day_pass' ? '₦500' : '₦2,500'} via Paystack` : 'Payment setup required'}
         </Button>
       </div>
     </BottomSheet>

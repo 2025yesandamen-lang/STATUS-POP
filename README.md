@@ -69,22 +69,35 @@ npm install
 ```
 
 ### 2. Configure Environment
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env` and fill in the services you want to enable:
 ```bash
 cp .env.example .env
 ```
-Add optional AI provider keys from [Google AI Studio](https://aistudio.google.com/) or [Groq Console](https://console.groq.com/). Keep all secrets in a local `.env` file or your hosting provider's secret manager. Never commit `.env`.
+Keep all secrets in your local `.env` file or your hosting provider's secret manager. Never commit `.env`.
 
-For administrator access, configure `ADMIN_PASSWORD` (at least 12 characters) and `SESSION_SECRET` (at least 32 characters) in the hosting secret manager. Generate a signing secret with:
+### Accounts and persistent data
+
+StatusPop uses Better Auth email/password accounts with Neon PostgreSQL. Configure `DATABASE_URL` with the Neon pooled connection string and set `BETTER_AUTH_SECRET` to a unique random value of at least 32 characters. The PostgreSQL URL, auth secret, and provider API keys are server-only and must never be added to frontend `VITE_*` variables.
+
+Generate a secret with:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Admin login is server-verified, rate-limited, and uses an expiring HttpOnly cookie. The admin page reports that its data store is unavailable until a persistent database is integrated. It does not show sample CRM, order, or payment records.
+Run the Better Auth schema migration after setting `DATABASE_URL` and `BETTER_AUTH_SECRET`:
+```bash
+npm run auth:migrate
+```
 
-The server-side Paystack flow requires `DATABASE_URL`, `PAYSTACK_SECRET_KEY`, a 32+ character `SESSION_SECRET`, and an HTTPS `APP_URL`. On startup/first payment it creates the payment and entitlement tables in PostgreSQL. Set Paystack's webhook URL to `https://your-domain/api/paystack/webhook`; use the same Paystack secret for webhook verification unless a separate `PAYSTACK_WEBHOOK_SECRET` is configured. The server fixes prices, persists pending references before redirect, verifies references directly with Paystack, validates vendor/plan/amount/currency, and applies paid entitlements transactionally and idempotently. Payments fail closed if PostgreSQL or Paystack is unavailable.
+Email verification and password reset use Resend. Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL`, and verify the sending domain in Resend before enabling sign-up in production. Set `BETTER_AUTH_URL` to `http://localhost:3000` for local development and the production origin for deployment; set `APP_URL` to the same HTTPS production origin for payment callbacks.
 
-The current identity is an anonymous browser-bound HttpOnly session, not a recoverable customer account. An entitlement is available only in that browser; clearing its cookies loses access. Add phone/email authentication and account recovery before relying on cross-device paid-plan access or offering payments at scale. Back up the PostgreSQL database and configure TLS, monitoring, webhook retries, and incident alerts in production.
+After sign-in, StatusPop imports the current browser's vendor profile and products once if the account has no saved profile. Later profile/product changes are synced to PostgreSQL. Data already cleared or stored in a different browser cannot be recovered by this migration. Account-owned product images and exported flyers are uploaded to Cloudinary; set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` to enable uploads. The app keeps local drafts and downloads available if cloud storage is not configured.
+
+### Paystack
+
+The server-side Paystack flow requires `DATABASE_URL`, `PAYSTACK_SECRET_KEY`, `SESSION_SECRET` (at least 32 characters), and an HTTPS `APP_URL`. It creates payment and entitlement tables in PostgreSQL as needed. Set Paystack's webhook URL to `https://your-domain/api/paystack/webhook`; use the same Paystack secret for webhook verification unless `PAYSTACK_WEBHOOK_SECRET` is configured. Checkout is restricted to a signed-in account with a verified email. The server sets prices, persists pending references before redirect, verifies payments directly with Paystack, validates account/plan/amount/currency, and applies entitlements transactionally and idempotently.
+
+Administrator access remains separate: configure `ADMIN_PASSWORD` (at least 12 characters) and `SESSION_SECRET` (at least 32 characters). Admin login is server-verified, rate-limited, and uses an expiring HttpOnly cookie. Back up PostgreSQL and configure monitoring, webhook retries, and incident alerts before relying on paid plans in production.
 
 ### 3. Run Development Server
 ```bash
@@ -97,6 +110,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser or mobile de
 npm run build
 npm start
 ```
+
+### Deploy to Vercel
+
+Import the repository into Vercel and use the included `vercel.json`. The frontend is built to `dist`; the Express API runs as a Vercel Function. Add the production environment variables from `.env.example` in Vercel's project settings. Configure the Neon pooled `DATABASE_URL`, `DATABASE_SSL=true`, `APP_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_SECRET` for Production, Preview, and Development as appropriate. Vercel functions are request-driven, not persistent background servers. Review Vercel's current plan terms and limits for your intended commercial use.
 
 ---
 

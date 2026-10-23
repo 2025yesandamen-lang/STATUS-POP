@@ -15,6 +15,7 @@ import confetti from 'canvas-confetti';
 import { FlyerTemplate, UserFlyerData, UserPlan } from '../../types/index.ts';
 import { exportFlyerToDataUrl } from '../../lib/render.ts';
 import { recordAnalyticsEvent } from '../../lib/storage.ts';
+import { uploadMedia } from '../../lib/media.ts';
 import { Button } from '../ui/Button.tsx';
 import { useToast } from '../ui/Toast.tsx';
 
@@ -23,6 +24,7 @@ export interface ExportBarProps {
   userData: UserFlyerData;
   userPlan: UserPlan;
   referralCode: string;
+  isAuthenticated: boolean;
   onOpenUpgrade: () => void;
 }
 
@@ -31,6 +33,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
   userData,
   userPlan,
   referralCode,
+  isAuthenticated,
   onOpenUpgrade,
 }) => {
   const { showToast } = useToast();
@@ -41,6 +44,21 @@ export const ExportBar: React.FC<ExportBarProps> = ({
   const [captionCopied, setCaptionCopied] = useState<boolean>(false);
 
   const hasWatermark = userPlan === 'free';
+
+  const saveFlyerToAccount = async (dataUrl: string): Promise<void> => {
+    if (!isAuthenticated) return;
+    try {
+      await uploadMedia(dataUrl, 'flyer');
+      showToast('Flyer backed up', 'This flyer is saved to your StatusPop account.', 'success');
+    } catch (error) {
+      console.error('Could not back up exported flyer:', error);
+      showToast(
+        'Flyer downloaded; backup failed',
+        error instanceof Error ? error.message : 'The image is still on your device.',
+        'error'
+      );
+    }
+  };
 
   const triggerConfetti = () => {
     try {
@@ -83,6 +101,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
       link.download = filename;
       link.href = dataUrl;
       link.click();
+      await saveFlyerToAccount(dataUrl);
 
       triggerConfetti();
       recordAnalyticsEvent('flyer_created', {
@@ -127,6 +146,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
       link.download = filename;
       link.href = dataUrl;
       link.click();
+      await saveFlyerToAccount(dataUrl);
 
       recordAnalyticsEvent('flyer_shared', {
         templateId: template.id,
