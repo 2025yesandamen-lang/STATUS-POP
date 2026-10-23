@@ -217,6 +217,63 @@ app.get('/api/admin/status', requireAdmin, async (_req: Request, res: Response) 
   res.json({ dataStoreConfigured: isPaymentStorageConfigured(), paymentsConfigured: await isPaymentsReady() });
 });
 
+app.get('/api/admin/payments', requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  if (!databasePool) {
+    res.status(503).json({ error: 'payment_storage_unavailable', message: 'Payment records are not available right now.' });
+    return;
+  }
+  try {
+    await ensurePaymentSchema();
+    const [summaryResult, paymentsResult] = await Promise.all([
+      databasePool.query(`
+        SELECT
+          COUNT(*)::int AS total_count,
+          COUNT(*) FILTER (WHERE status = 'success')::int AS successful_count,
+          COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+          COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
+          COALESCE(SUM(amount_kobo) FILTER (WHERE status = 'success'), 0)::bigint AS revenue_kobo
+        FROM payment_transactions
+      `),
+      databasePool.query(`
+        SELECT reference, plan, amount_kobo, currency, status, customer_email, created_at, paid_at
+        FROM payment_transactions
+        ORDER BY COALESCE(paid_at, created_at) DESC
+        LIMIT 100
+      `),
+    ]);
+    const summary = summaryResult.rows[0];
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      summary: {
+        totalCount: Number(summary.total_count),
+        successfulCount: Number(summary.successful_count),
+        pendingCount: Number(summary.pending_count),
+        failedCount: Number(summary.failed_count),
+        revenueKobo: Number(summary.revenue_kobo),
+      },
+      payments: paymentsResult.rows.map((payment) => ({
+        reference: payment.reference,
+        plan: payment.plan,
+        amountKobo: Number(payment.amount_kobo),
+        currency: payment.currency,
+        status: payment.status,
+        customerEmail: maskPaymentEmail(payment.customer_email),
+        createdAt: payment.created_at,
+        paidAt: payment.paid_at,
+      })),
+    });
+  } catch (error) {
+    console.error('Admin payment records lookup failed:', error);
+    res.status(503).json({ error: 'payment_records_unavailable', message: 'Could not load payment records. Try again.' });
+  }
+});
+
+function maskPaymentEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return 'Account email unavailable';
+  return `${localPart.slice(0, 2)}***@${domain}`;
+}
+
 let vendorDataSchemaPromise: Promise<void> | null = null;
 
 async function ensureVendorDataSchema(): Promise<void> {

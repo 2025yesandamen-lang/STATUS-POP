@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Lock, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock3, Lock, LogOut, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { Button } from '../ui/Button.tsx';
 import { Card } from '../ui/Card.tsx';
 import { useToast } from '../ui/Toast.tsx';
@@ -10,9 +10,43 @@ type AdminStatus = {
   paymentsConfigured: boolean;
 };
 
+type PaymentSummary = {
+  totalCount: number;
+  successfulCount: number;
+  pendingCount: number;
+  failedCount: number;
+  revenueKobo: number;
+};
+
+type AdminPayment = {
+  reference: string;
+  plan: 'day_pass' | 'pro';
+  amountKobo: number;
+  currency: string;
+  status: 'pending' | 'success' | 'failed';
+  customerEmail: string;
+  createdAt: string;
+  paidAt: string | null;
+};
+
+type PaymentReport = {
+  summary: PaymentSummary;
+  payments: AdminPayment[];
+};
+
 export interface AdminDashboardProps {
   onBack: () => void;
 }
+
+const formatNaira = (amountKobo: number): string =>
+  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 })
+    .format(amountKobo / 100);
+
+const maskEmail = (email: string): string => {
+  const [name, domain] = email.split('@');
+  if (!name || !domain) return 'Account email unavailable';
+  return `${name.slice(0, 2)}***@${domain}`;
+};
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const { showToast } = useToast();
@@ -21,6 +55,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serviceError, setServiceError] = useState('');
+  const [paymentReport, setPaymentReport] = useState<PaymentReport | null>(null);
+  const [paymentError, setPaymentError] = useState('');
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+
+  const loadPayments = async () => {
+    setIsLoadingPayments(true);
+    setPaymentError('');
+    try {
+      const response = await fetch('/api/admin/payments', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const result = await response.json().catch(() => null) as (PaymentReport & { message?: string }) | null;
+      if (!response.ok) throw new Error(result?.message || 'Could not load payment records.');
+      if (!result || !result.summary || !Array.isArray(result.payments)) {
+        throw new Error('The admin service returned an invalid payment report.');
+      }
+      setPaymentReport(result);
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : 'Could not load payment records.');
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  };
 
   const refreshStatus = async () => {
     setIsLoading(true);
@@ -31,6 +89,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       if (!result) throw new Error('The admin service returned an invalid response.');
       setStatus(result);
       setServiceError('');
+      if (result.authenticated) await loadPayments();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Try again later.';
       setServiceError(message);
@@ -58,6 +117,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       setPassword('');
       if (!response.ok) throw new Error(result.message || 'Login failed.');
       setStatus(result);
+      await loadPayments();
       showToast('Signed in', 'Administrator session established.', 'success');
     } catch (error) {
       showToast('Sign-in failed', error instanceof Error ? error.message : 'Try again later.', 'error');
@@ -162,6 +222,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             <dt>Verified payments</dt><dd>{status.paymentsConfigured ? 'Configured' : 'Disabled'}</dd>
           </div>
         </dl>
+      </Card>
+
+      <Card padding="md" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Paystack transactions</h2>
+            <p className="text-sm text-gray-500">Verified payment records stored in Neon.</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void loadPayments()}
+            isLoading={isLoadingPayments}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
+          >
+            Refresh
+          </Button>
+        </div>
+
+        {paymentError && (
+          <p className="text-sm text-red-700 dark:text-red-300" role="alert">{paymentError}</p>
+        )}
+
+        {paymentReport && (
+          <>
+            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <dt className="text-xs text-gray-500">Verified revenue</dt>
+                <dd className="mt-1 font-bold">{formatNaira(paymentReport.summary.revenueKobo)}</dd>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <dt className="text-xs text-gray-500">Successful</dt>
+                <dd className="mt-1 font-bold">{paymentReport.summary.successfulCount}</dd>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <dt className="text-xs text-gray-500">Pending</dt>
+                <dd className="mt-1 font-bold">{paymentReport.summary.pendingCount}</dd>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <dt className="text-xs text-gray-500">Failed / total</dt>
+                <dd className="mt-1 font-bold">{paymentReport.summary.failedCount} / {paymentReport.summary.totalCount}</dd>
+              </div>
+            </dl>
+
+            {paymentReport.payments.length === 0 ? (
+              <p className="py-5 text-center text-sm text-gray-500">No Paystack transactions have been recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[700px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-700">
+                      <th className="px-2 py-3 font-medium">Payment</th>
+                      <th className="px-2 py-3 font-medium">Customer</th>
+                      <th className="px-2 py-3 font-medium">Reference</th>
+                      <th className="px-2 py-3 font-medium">Status</th>
+                      <th className="px-2 py-3 font-medium">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentReport.payments.map((payment) => (
+                      <tr key={payment.reference} className="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                        <td className="px-2 py-3">
+                          <div className="font-semibold">{formatNaira(payment.amountKobo)}</div>
+                          <div className="text-xs text-gray-500">{payment.plan === 'day_pass' ? 'Day pass' : 'Pro'}</div>
+                        </td>
+                        <td className="px-2 py-3">{maskEmail(payment.customerEmail)}</td>
+                        <td className="px-2 py-3 font-mono text-xs">{payment.reference}</td>
+                        <td className="px-2 py-3">
+                          <span className="inline-flex items-center gap-1 capitalize">
+                            {payment.status === 'success'
+                              ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              : payment.status === 'pending'
+                                ? <Clock3 className="h-4 w-4 text-amber-600" />
+                                : <XCircle className="h-4 w-4 text-red-600" />}
+                            {payment.status}
+                          </span>
+                        </td>
+                        <td className="px-2 py-3 text-xs text-gray-500">
+                          {new Date(payment.paidAt || payment.createdAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="pt-3 text-xs text-gray-500">Showing the latest {paymentReport.payments.length} transactions.</p>
+              </div>
+            )}
+          </>
+        )}
       </Card>
     </main>
   );
