@@ -521,12 +521,12 @@ app.post('/api/checkout', async (req: Request, res: Response): Promise<void> => 
     user = await getAuthenticatedUser(req);
   } catch (error) {
     console.error('Could not load checkout account:', error);
-    res.status(503).json({ error: 'account_unavailable', message: 'Could not verify your email address.' });
+    res.status(503).json({ error: 'account_unavailable', message: 'Could not load your account. Try again.' });
     return;
   }
   const email = user?.email || '';
-  if (!Object.hasOwn({ day_pass: true, pro: true }, plan) || !email || !user?.emailVerified) {
-    res.status(400).json({ error: 'invalid_checkout', message: 'Sign in with a verified email and choose a plan.' });
+  if (!Object.hasOwn({ day_pass: true, pro: true }, plan) || !email) {
+    res.status(400).json({ error: 'invalid_checkout', message: 'Sign in and choose a valid plan to continue.' });
     return;
   }
 

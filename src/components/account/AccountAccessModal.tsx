@@ -44,6 +44,31 @@ export const AccountAccessModal: React.FC<AccountAccessModalProps> = ({
 
   if (!isOpen) return null;
 
+  const finishSignIn = async () => {
+    const [data, sessionResponse] = await Promise.all([
+      synchronizeAccountData(),
+      fetch('/api/vendor/session', { credentials: 'same-origin', cache: 'no-store' }),
+    ]);
+    if (!sessionResponse.ok) throw new Error('Signed in, but could not load account status.');
+    const session = await sessionResponse.json() as {
+      authenticated?: boolean;
+      email?: string;
+      plan?: UserPlan;
+      planExpiresAt?: string | null;
+    };
+    if (!session.authenticated || !session.email) throw new Error('The account session could not be confirmed.');
+    onAuthenticated({
+      email: session.email,
+      profile: { ...data.profile, email: session.email, plan: session.plan || 'free', planExpiresAt: session.planExpiresAt || undefined },
+      products: data.products,
+      plan: session.plan || 'free',
+      planExpiresAt: session.planExpiresAt || undefined,
+    });
+    setNotice('Signed in. Your account data is now synced across devices.');
+    setPassword('');
+    window.setTimeout(onClose, 700);
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -68,9 +93,7 @@ export const AccountAccessModal: React.FC<AccountAccessModalProps> = ({
           callbackURL: window.location.origin,
         });
         if (result.error) throw new Error(result.error.message || 'Could not create your account.');
-        setNotice('Account created. Check your email and verify the address, then sign in here.');
-        setMode('sign-in');
-        setPassword('');
+        await finishSignIn();
         return;
       }
 
@@ -81,28 +104,7 @@ export const AccountAccessModal: React.FC<AccountAccessModalProps> = ({
       });
       if (result.error) throw new Error(result.error.message || 'Could not sign in.');
 
-      const [data, sessionResponse] = await Promise.all([
-        synchronizeAccountData(),
-        fetch('/api/vendor/session', { credentials: 'same-origin', cache: 'no-store' }),
-      ]);
-      if (!sessionResponse.ok) throw new Error('Signed in, but could not load account status.');
-      const session = await sessionResponse.json() as {
-        authenticated?: boolean;
-        email?: string;
-        plan?: UserPlan;
-        planExpiresAt?: string | null;
-      };
-      if (!session.authenticated || !session.email) throw new Error('The account session could not be confirmed.');
-      onAuthenticated({
-        email: session.email,
-        profile: { ...data.profile, email: session.email, plan: session.plan || 'free', planExpiresAt: session.planExpiresAt || undefined },
-        products: data.products,
-        plan: session.plan || 'free',
-        planExpiresAt: session.planExpiresAt || undefined,
-      });
-      setNotice('Signed in. Your account data is now synced across devices.');
-      setPassword('');
-      window.setTimeout(onClose, 700);
+      await finishSignIn();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Account request failed. Please try again.');
     } finally {

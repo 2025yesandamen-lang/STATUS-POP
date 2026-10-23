@@ -47,7 +47,8 @@ function createConfiguredAuth(secret: string) {
     trustedOrigins: [...trustedOrigins],
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: productionAuth,
+      requireEmailVerification: false,
+      autoSignIn: true,
       sendResetPassword: async ({ user, url }) => {
         await sendAccountEmail({
           to: user.email,
@@ -58,7 +59,7 @@ function createConfiguredAuth(secret: string) {
       },
     },
     emailVerification: {
-      sendOnSignUp: productionAuth,
+      sendOnSignUp: false,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await sendAccountEmail({
