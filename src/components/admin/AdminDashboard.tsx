@@ -20,14 +20,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serviceError, setServiceError] = useState('');
 
   const refreshStatus = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch('/api/admin/session', { credentials: 'same-origin' });
-      if (!response.ok) throw new Error('Unable to verify administrator session.');
-      setStatus(await response.json());
+      const result = await response.json().catch(() => null) as (AdminStatus & { message?: string }) | null;
+      if (!response.ok) throw new Error(result?.message || 'Unable to verify administrator session.');
+      if (!result) throw new Error('The admin service returned an invalid response.');
+      setStatus(result);
+      setServiceError('');
     } catch (error) {
-      showToast('Admin service unavailable', error instanceof Error ? error.message : 'Try again later.', 'error');
+      const message = error instanceof Error ? error.message : 'Try again later.';
+      setServiceError(message);
+      showToast('Admin service unavailable', message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +74,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
   if (isLoading) {
     return <main className="min-h-[60vh] grid place-items-center p-6" role="status">Checking administrator session...</main>;
+  }
+
+  if (serviceError) {
+    return (
+      <main className="min-h-[70vh] flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-6 space-y-4">
+          <div>
+            <h1 className="text-xl font-bold">Admin service unavailable</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-2" role="alert">{serviceError}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Configure <code>ADMIN_PASSWORD</code> and <code>SESSION_SECRET</code> in the hosting environment, then retry.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={() => void refreshStatus()}>Retry</Button>
+            <Button variant="outline" onClick={onBack}>Back</Button>
+          </div>
+        </Card>
+      </main>
+    );
   }
 
   if (!status?.authenticated) {
