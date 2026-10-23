@@ -148,7 +148,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           <h2 className="font-semibold">Production service status</h2>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Admin authentication is active. Administrative records and actions are disabled until a persistent database is configured; this app will not display fabricated vendors, orders, or payment totals.
+          {!status.dataStoreConfigured
+            ? 'Admin authentication is active, but database-backed records and payment actions are unavailable until a persistent database is configured.'
+            : status.paymentsConfigured
+              ? 'The persistent database and Paystack payment storage are configured. Shop orders are sent directly to vendors through WhatsApp and are not stored in this app.'
+              : 'The persistent database is configured, but Paystack checkout is disabled until its production settings are complete. Shop orders are sent directly to vendors through WhatsApp and are not stored in this app.'}
         </p>
         <dl className="grid gap-2 sm:grid-cols-2 text-sm">
           <div className="flex justify-between gap-3 border-t border-gray-200 dark:border-gray-700 pt-2">
