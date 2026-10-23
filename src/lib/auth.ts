@@ -19,12 +19,32 @@ async function sendAccountEmail(input: { to: string; subject: string; html: stri
 function createConfiguredAuth(secret: string) {
   const productionAuth = process.env.NODE_ENV === 'production';
   const productionUrl = process.env.APP_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined);
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined) ||
+    (productionAuth ? 'https://status-pop.vercel.app' : undefined);
+  const trustedOrigins = new Set<string>();
+  for (const candidate of [
+    productionUrl,
+    process.env.BETTER_AUTH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL,
+    'https://status-pop.vercel.app',
+    ...(productionAuth ? [] : ['http://localhost:3000']),
+  ]) {
+    if (!candidate) continue;
+    try {
+      const url = new URL(candidate.includes('://') ? candidate : `https://${candidate}`);
+      if (url.protocol === 'https:' || url.hostname === 'localhost') trustedOrigins.add(url.origin);
+    } catch {
+      throw new Error('Better Auth URL configuration contains an invalid origin.');
+    }
+  }
   return betterAuth({
     database: databasePool!,
     secret,
-    baseURL: process.env.BETTER_AUTH_URL ||
-      (productionAuth ? productionUrl : 'http://localhost:3000'),
+    baseURL: productionAuth
+      ? productionUrl || process.env.BETTER_AUTH_URL
+      : process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+    trustedOrigins: [...trustedOrigins],
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: productionAuth,
