@@ -16,6 +16,7 @@ const {
   ensurePaymentSchema,
   getPendingPayment,
   getVendorEntitlement,
+  grantVendorEntitlementByEmail,
   isPaymentStorageConfigured,
   markPaymentFailed,
   markPaymentSuccessful,
@@ -217,6 +218,43 @@ app.get('/api/admin/status', requireAdmin, async (_req: Request, res: Response) 
   res.json({ dataStoreConfigured: isPaymentStorageConfigured(), paymentsConfigured: await isPaymentsReady() });
 });
 
+app.post('/api/admin/entitlements', requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const plan = req.body?.plan;
+  const durationDays = req.body?.durationDays;
+  const durationMatchesPlan = plan === 'day_pass'
+    ? durationDays === 1
+    : plan === 'pro' && [30, 365].includes(durationDays);
+  if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    !Object.hasOwn({ day_pass: true, pro: true }, plan) ||
+    !durationMatchesPlan
+  ) {
+    res.status(400).json({ error: 'invalid_entitlement', message: 'Provide a valid account email, paid plan, and supported access duration.' });
+    return;
+  }
+  if (!isPaymentStorageConfigured()) {
+    res.status(503).json({ error: 'account_storage_unavailable', message: 'Account storage is not configured.' });
+    return;
+  }
+
+  try {
+    const grant = await grantVendorEntitlementByEmail(
+      email,
+      plan as PaidPlan,
+      durationDays as 1 | 30 | 365
+    );
+    if (!grant) {
+      res.status(404).json({ error: 'account_not_found', message: 'Create the account first, then grant access to its sign-in email.' });
+      return;
+    }
+    res.json({ email: grant.email, plan, expiresAt: grant.expiresAt });
+  } catch (error) {
+    console.error('Admin entitlement grant failed:', error);
+    res.status(503).json({ error: 'entitlement_grant_unavailable', message: 'Could not grant account access. Try again.' });
+  }
+});
+
 app.get('/api/admin/payments', requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   if (!databasePool) {
     res.status(503).json({ error: 'payment_storage_unavailable', message: 'Payment records are not available right now.' });
@@ -332,6 +370,9 @@ function sanitizeVendorProfile(input: unknown, userId: string, email: string): V
       : Number.isInteger(profile.flyersCreatedToday)
         ? Math.max(0, Math.min(10000, profile.flyersCreatedToday || 0))
         : 0,
+    whatsappDpsCreatedTotal: Number.isInteger(profile.whatsappDpsCreatedTotal)
+      ? Math.max(0, Math.min(10000, profile.whatsappDpsCreatedTotal || 0))
+      : 0,
     lastFlyerDate: typeof profile.lastFlyerDate === 'string' ? profile.lastFlyerDate.slice(0, 10) : '',
     isPhoneVerified: false,
     isBankVerified: false,

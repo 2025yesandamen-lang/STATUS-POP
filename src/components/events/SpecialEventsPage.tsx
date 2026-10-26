@@ -61,19 +61,18 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
 
   // Active Category & Selected Design
   const [selectedEventType, setSelectedEventType] = useState<SpecialEventType>('independence_day');
-  const [selectedVariant, setSelectedVariant] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [selectedVariant, setSelectedVariant] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
 
   // Picture accommodation toggle: allows designing with or without picture
   const [includePhoto, setIncludePhoto] = useState<boolean>(true);
   const [userUploadedPhoto, setUserUploadedPhoto] = useState<string | null>(null);
 
   // Custom Studio Canvas elements and background (for Variant 5)
-  const [customBackground, setCustomBackground] = useState<string>('gold_sparkles');
+  const [customBackground, setCustomBackground] = useState<string>('professional_slate');
   const [customElements, setCustomElements] = useState<CustomCanvasElement[]>([
     { id: 'el-cont-1', type: 'container', x: 540, y: 150, width: 440, height: 440, shapeType: 'heart' },
     { id: 'el-stk-1', type: 'sticker', iconType: 'flower', x: 510, y: 150, scale: 1.1 },
-    { id: 'el-stk-2', type: 'sticker', iconType: 'gold_ribbon', x: 960, y: 160, scale: 1.2 },
-    { id: 'el-stk-3', type: 'sticker', iconType: 'discount_tag', x: 900, y: 520, scale: 1.0 },
+    { id: 'el-stk-2', type: 'sticker', iconType: 'discount_tag', x: 900, y: 520, scale: 1.0 },
   ]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>('el-cont-1');
 
@@ -394,6 +393,8 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
         return { label: 'Luxury Emblem', icon: '👑', desc: 'Gold royal emblem' };
       case 'custom_studio':
         return { label: 'Custom Touch Studio', icon: '🎨', desc: 'Direct touch drag stickers & shapes' };
+      case 'professional_editorial':
+        return { label: 'Professional Editorial', icon: '▰', desc: 'Refined business-ready layout' };
       default:
         return { label: 'Classic Design', icon: '✨', desc: 'Standard holiday flyer' };
     }
@@ -419,7 +420,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                 <span>🎉 Celebration Flyer Studio</span>
               </h1>
               <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                Design is always on top as you make changes!
+                Your preview updates as you make changes.
               </p>
             </div>
           </div>
@@ -449,7 +450,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
           <div className="flex items-center justify-between text-xs font-bold text-gray-700 dark:text-gray-300">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-              <span>Live 1:1 Flyer Preview (Always on Top)</span>
+              <span>Live 1:1 Flyer Preview</span>
             </span>
             {selectedVariant === 5 && (
               <span className="text-[10px] font-extrabold text-[#0B6B3A] dark:text-green-400 bg-green-100 dark:bg-green-950/60 px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -577,14 +578,17 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setCustomElements((prev) => prev.filter((e) => e.id !== selectedElementId));
-                    setSelectedElementId(customElements[0]?.id || null);
-                    showToast('Removed', 'Element deleted from flyer.', 'info');
+                    const remaining = customElements.filter((element) => element.id !== selectedElementId);
+                    setCustomElements(remaining);
+                    setSelectedElementId(remaining[remaining.length - 1]?.id || null);
+                    showToast('Element removed', 'It has been removed from the flyer.', 'info');
                   }}
-                  className="tap-target px-2 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 text-xs font-bold"
-                  title="Delete"
+                  className="tap-target px-2.5 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 text-xs font-bold flex items-center gap-1"
+                  title="Delete selected element"
+                  aria-label="Delete selected element"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
+                  Delete
                 </button>
               </div>
             </div>
@@ -644,20 +648,27 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
               </div>
             </div>
 
-            {/* 5 Formats Grid */}
+            {/* Event Design Formats */}
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                Choose Format (Format 1-4 Curated + Format 5 Custom Touch Studio):
+                Choose a celebration design:
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                 {currentEventDesigns.map((design) => {
                   const isSelected = selectedVariant === design.designVariant;
+                  const isLocked = Boolean(design.isProExclusive && userPlan === 'free');
                   const formatInfo = getFormatBadge(design.layoutFormat);
 
                   return (
                     <div
                       key={design.id}
-                      onClick={() => setSelectedVariant(design.designVariant)}
+                      onClick={() => {
+                        if (isLocked) {
+                          onOpenPricing();
+                          return;
+                        }
+                        setSelectedVariant(design.designVariant);
+                      }}
                       className={`tap-target relative p-2.5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
                         isSelected
                           ? 'border-[#0B6B3A] bg-green-50/60 dark:bg-green-950/30 ring-1 ring-[#0B6B3A]/30'
@@ -669,14 +680,14 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                           <span className="text-xs font-black">
                             {formatInfo.icon} F{design.designVariant}
                           </span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0B6B3A]" />}
+                          {isSelected ? <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> : isLocked ? <Crown className="w-3.5 h-3.5 text-amber-500" /> : null}
                         </div>
                         <p className="text-[11px] font-bold text-gray-900 dark:text-white line-clamp-1">
                           {formatInfo.label}
                         </p>
                       </div>
-                      <span className="text-[9px] text-[#0B6B3A] font-semibold block truncate mt-1">
-                        {design.title}
+                      <span className={`text-[9px] font-semibold block truncate mt-1 ${isLocked ? 'text-amber-600 dark:text-amber-400' : 'text-[#0B6B3A]'}`}>
+                        {isLocked ? 'PRO · ' : ''}{design.title}
                       </span>
                     </div>
                   );
@@ -691,7 +702,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
               </label>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                 {[
-                  { id: 'gold_sparkles', name: 'Gold Dust', icon: '✨' },
+                  { id: 'professional_slate', name: 'Slate', icon: '▰' },
                   { id: 'valentine_red', name: 'Red Velvet', icon: '❤️' },
                   { id: 'emerald_islamic', name: 'Emerald', icon: '🌙' },
                   { id: 'christmas_pine', name: 'Pine Snow', icon: '🌲' },

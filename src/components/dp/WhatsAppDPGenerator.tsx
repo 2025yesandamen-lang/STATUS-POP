@@ -27,6 +27,7 @@ import { Card } from '../ui/Card.tsx';
 import { useToast } from '../ui/Toast.tsx';
 import { formatWhatsAppPhone, formatDisplayPhone } from '../../lib/format.ts';
 import { downscaleImage, enhanceBadCameraPhoto } from '../../lib/imageProcessing.ts';
+import { drawImageInSlot } from '../../lib/render.ts';
 import QRCode from 'qrcode';
 
 interface WhatsAppDPGeneratorProps {
@@ -34,6 +35,7 @@ interface WhatsAppDPGeneratorProps {
   vendor: VendorProfile;
   onBack: () => void;
   onOpenPricing: () => void;
+  onRecordExport: () => boolean;
 }
 
 // Industry Presets specifically for Tailors, Barbers, Mechanics, Electricians, Chefs, Tech vendors
@@ -116,6 +118,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
   vendor,
   onBack,
   onOpenPricing,
+  onRecordExport,
 }) => {
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -135,7 +138,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
     address: vendor.address || 'Yaba Tejuosho Market, Lagos',
     themeColor: currentSector.themeColor,
     avatarImage: currentSector.samplePhoto,
-    layoutStyle: 'circle_badge' as 'circle_badge' | 'modern_card' | 'luxury_gold',
+    layoutStyle: 'circle_badge' as 'circle_badge' | 'modern_card' | 'luxury_gold' | 'square_editorial',
   });
 
   // Circular WhatsApp crop guide toggle (shows what is inside the round avatar)
@@ -143,6 +146,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
   const [previewDataUrl, setPreviewDataUrl] = useState<string>('');
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'sector' | 'details' | 'services' | 'theme'>('sector');
+  const freeDpsUsed = Math.min(vendor.whatsappDpsCreatedTotal || 0, 2);
 
   // Handle Sector Change
   const handleSelectSector = (secId: string) => {
@@ -200,28 +204,40 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.imageSmoothingQuality = 'high';
 
         // 1. Background Fill
+        const isEditorialSquare = dpData.layoutStyle === 'square_editorial';
         const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
-        if (dpData.layoutStyle === 'luxury_gold') {
+        if (isEditorialSquare) {
+          ctx.fillStyle = '#F3F1EB';
+          ctx.fillRect(0, 0, 1080, 1080);
+        } else if (dpData.layoutStyle === 'luxury_gold') {
           bgGrad.addColorStop(0, '#0F1218');
           bgGrad.addColorStop(1, '#1A202C');
+          ctx.fillStyle = bgGrad;
+          ctx.fillRect(0, 0, 1080, 1080);
         } else {
           bgGrad.addColorStop(0, '#0F172A');
           bgGrad.addColorStop(0.5, '#1E293B');
           bgGrad.addColorStop(1, '#0B0F19');
+          ctx.fillStyle = bgGrad;
+          ctx.fillRect(0, 0, 1080, 1080);
         }
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(0, 0, 1080, 1080);
 
         // Subtle decorative rings centered at 540, 540
         ctx.save();
-        ctx.strokeStyle = `${dpData.themeColor}33`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(540, 540, 520, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(540, 540, 480, 0, Math.PI * 2);
-        ctx.stroke();
+        if (isEditorialSquare) {
+          ctx.strokeStyle = '#C6A66A';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(34, 34, 1012, 1012);
+        } else {
+          ctx.strokeStyle = `${dpData.themeColor}33`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(540, 540, 520, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(540, 540, 480, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.restore();
 
         // 2. Preload Avatar Image
@@ -236,48 +252,55 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
           });
         }
 
-        // 3. Central Photo Frame (Circle)
+        // 3. Central Photo Frame
         const photoCx = 540;
-        const photoCy = 390;
+        const photoCy = isEditorialSquare ? 360 : 390;
         const photoRadius = 220;
+        const photoSize = 440;
 
-        // Outer Glow Ring
         ctx.save();
-        ctx.shadowColor = dpData.themeColor;
-        ctx.shadowBlur = 35;
-        ctx.fillStyle = dpData.themeColor;
-        ctx.beginPath();
-        ctx.arc(photoCx, photoCy, photoRadius + 12, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.shadowColor = isEditorialSquare ? 'rgba(24, 34, 48, 0.22)' : dpData.themeColor;
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 12;
+        ctx.fillStyle = isEditorialSquare ? '#C6A66A' : dpData.themeColor;
+        if (isEditorialSquare) {
+          ctx.beginPath();
+          ctx.roundRect(photoCx - photoSize / 2 - 12, photoCy - photoSize / 2 - 12, photoSize + 24, photoSize + 24, 36);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(photoCx, photoCy, photoRadius + 12, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.restore();
 
-        // White border ring
         ctx.save();
         ctx.fillStyle = '#FFFFFF';
-        ctx.beginPath();
-        ctx.arc(photoCx, photoCy, photoRadius + 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Clip and Draw Avatar
-        ctx.beginPath();
-        ctx.arc(photoCx, photoCy, photoRadius, 0, Math.PI * 2);
-        ctx.clip();
+        if (isEditorialSquare) {
+          ctx.beginPath();
+          ctx.roundRect(photoCx - photoSize / 2 - 4, photoCy - photoSize / 2 - 4, photoSize + 8, photoSize + 8, 32);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(photoCx, photoCy, photoRadius + 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
         if (avatarImg) {
-          ctx.drawImage(
-            avatarImg,
-            photoCx - photoRadius,
-            photoCy - photoRadius,
-            photoRadius * 2,
-            photoRadius * 2
-          );
+          drawImageInSlot(ctx, avatarImg, photoCx, photoCy, photoSize, photoSize, {
+            borderRadius: isEditorialSquare ? 24 : undefined,
+            clipShape: isEditorialSquare ? undefined : 'circle',
+          });
         } else {
           ctx.fillStyle = '#374151';
-          ctx.fillRect(
-            photoCx - photoRadius,
-            photoCy - photoRadius,
-            photoRadius * 2,
-            photoRadius * 2
-          );
+          if (isEditorialSquare) {
+            ctx.beginPath();
+            ctx.roundRect(photoCx - photoSize / 2, photoCy - photoSize / 2, photoSize, photoSize, 24);
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.arc(photoCx, photoCy, photoRadius, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
         ctx.restore();
 
@@ -304,9 +327,9 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.3)';
         ctx.shadowBlur = 10;
-        ctx.fillStyle = dpData.themeColor;
+        ctx.fillStyle = isEditorialSquare ? '#18324B' : dpData.themeColor;
         ctx.beginPath();
-        ctx.roundRect(photoCx - 220, photoCy + 175, 440, 52, 26);
+        ctx.roundRect(photoCx - 220, photoCy + (isEditorialSquare ? 215 : 175), 440, 52, 18);
         ctx.fill();
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 3;
@@ -316,13 +339,13 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.font = 'bold 22px "Montserrat", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(dpData.badgeText.toUpperCase(), photoCx, photoCy + 201);
+        ctx.fillText(dpData.badgeText.toUpperCase(), photoCx, photoCy + (isEditorialSquare ? 241 : 201));
         ctx.restore();
 
         // 5. Business Name (Large & Centered)
         ctx.save();
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = isEditorialSquare ? '#182230' : '#FFFFFF';
         ctx.font = '900 44px "Anton", "Montserrat", sans-serif';
         let bName = dpData.businessName.toUpperCase();
         if (ctx.measureText(bName).width > 900) {
@@ -331,7 +354,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.fillText(bName, 540, 695);
 
         // Tagline / Slogan
-        ctx.fillStyle = '#FFC93C';
+        ctx.fillStyle = isEditorialSquare ? '#18324B' : '#FFC93C';
         ctx.font = 'bold 22px "Inter", sans-serif';
         ctx.fillText(dpData.tagline.toUpperCase(), 540, 735);
         ctx.restore();
@@ -349,11 +372,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
           const py = servicesY + row * (pillH + 12);
 
           ctx.save();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.fillStyle = isEditorialSquare ? 'rgba(24, 50, 75, 0.08)' : 'rgba(255, 255, 255, 0.12)';
           ctx.beginPath();
           ctx.roundRect(px, py, pillW, pillH, 25);
           ctx.fill();
-          ctx.strokeStyle = `${dpData.themeColor}99`;
+          ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : `${dpData.themeColor}99`;
           ctx.lineWidth = 2;
           ctx.stroke();
 
@@ -363,8 +386,8 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
           ctx.arc(px + 24, py + pillH / 2, 7, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.fillStyle = '#F8FAFC';
-          ctx.font = 'bold 20px "Inter", sans-serif';
+          ctx.fillStyle = isEditorialSquare ? '#182230' : '#F8FAFC';
+          ctx.font = '900 20px "Inter", sans-serif';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
           let sText = srv;
@@ -378,11 +401,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         // 7. Hotline & WhatsApp Contact Bar at Bottom
         const contactY = 910;
         ctx.save();
-        ctx.fillStyle = '#064E2B';
+        ctx.fillStyle = isEditorialSquare ? '#18324B' : '#064E2B';
         ctx.beginPath();
         ctx.roundRect(140, contactY, 800, 72, 36);
         ctx.fill();
-        ctx.strokeStyle = '#25D366';
+        ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : '#25D366';
         ctx.lineWidth = 4;
         ctx.stroke();
 
@@ -399,7 +422,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
 
         // Address snippet
         ctx.save();
-        ctx.fillStyle = '#94A3B8';
+        ctx.fillStyle = isEditorialSquare ? '#596579' : '#94A3B8';
         ctx.font = '500 18px "Inter", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`📍 ${dpData.address}`, 540, 1015);
@@ -464,22 +487,33 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
+      const isEditorialSquare = dpData.layoutStyle === 'square_editorial';
 
       // 1. Background
       const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
-      bgGrad.addColorStop(0, '#0F172A');
-      bgGrad.addColorStop(0.5, '#1E293B');
-      bgGrad.addColorStop(1, '#0B0F19');
-      ctx.fillStyle = bgGrad;
+      if (isEditorialSquare) {
+        ctx.fillStyle = '#F3F1EB';
+      } else {
+        bgGrad.addColorStop(0, '#0F172A');
+        bgGrad.addColorStop(0.5, '#1E293B');
+        bgGrad.addColorStop(1, '#0B0F19');
+        ctx.fillStyle = bgGrad;
+      }
       ctx.fillRect(0, 0, 1080, 1080);
 
       // Rings
       ctx.save();
-      ctx.strokeStyle = `${dpData.themeColor}33`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(540, 540, 520, 0, Math.PI * 2);
-      ctx.stroke();
+      if (isEditorialSquare) {
+        ctx.strokeStyle = '#C6A66A';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(34, 34, 1012, 1012);
+      } else {
+        ctx.strokeStyle = `${dpData.themeColor}33`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(540, 540, 520, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
 
       // Preload Avatar
@@ -494,45 +528,55 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         });
       }
 
-      // Central Photo Circle
+      // Central Photo Frame
       const photoCx = 540;
-      const photoCy = 390;
+      const photoCy = isEditorialSquare ? 360 : 390;
       const photoRadius = 220;
+      const photoSize = 440;
 
       ctx.save();
-      ctx.shadowColor = dpData.themeColor;
-      ctx.shadowBlur = 35;
-      ctx.fillStyle = dpData.themeColor;
-      ctx.beginPath();
-      ctx.arc(photoCx, photoCy, photoRadius + 12, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.shadowColor = isEditorialSquare ? 'rgba(24, 34, 48, 0.22)' : dpData.themeColor;
+      ctx.shadowBlur = 30;
+      ctx.shadowOffsetY = 12;
+      ctx.fillStyle = isEditorialSquare ? '#C6A66A' : dpData.themeColor;
+      if (isEditorialSquare) {
+        ctx.beginPath();
+        ctx.roundRect(photoCx - photoSize / 2 - 12, photoCy - photoSize / 2 - 12, photoSize + 24, photoSize + 24, 36);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(photoCx, photoCy, photoRadius + 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
 
       ctx.save();
       ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(photoCx, photoCy, photoRadius + 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(photoCx, photoCy, photoRadius, 0, Math.PI * 2);
-      ctx.clip();
+      if (isEditorialSquare) {
+        ctx.beginPath();
+        ctx.roundRect(photoCx - photoSize / 2 - 4, photoCy - photoSize / 2 - 4, photoSize + 8, photoSize + 8, 32);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(photoCx, photoCy, photoRadius + 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
       if (avatarImg) {
-        ctx.drawImage(
-          avatarImg,
-          photoCx - photoRadius,
-          photoCy - photoRadius,
-          photoRadius * 2,
-          photoRadius * 2
-        );
+        drawImageInSlot(ctx, avatarImg, photoCx, photoCy, photoSize, photoSize, {
+          borderRadius: isEditorialSquare ? 24 : undefined,
+          clipShape: isEditorialSquare ? undefined : 'circle',
+        });
       } else {
         ctx.fillStyle = '#374151';
-        ctx.fillRect(
-          photoCx - photoRadius,
-          photoCy - photoRadius,
-          photoRadius * 2,
-          photoRadius * 2
-        );
+        if (isEditorialSquare) {
+          ctx.beginPath();
+          ctx.roundRect(photoCx - photoSize / 2, photoCy - photoSize / 2, photoSize, photoSize, 24);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(photoCx, photoCy, photoRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       ctx.restore();
 
@@ -559,9 +603,9 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.3)';
       ctx.shadowBlur = 10;
-      ctx.fillStyle = dpData.themeColor;
+      ctx.fillStyle = isEditorialSquare ? '#18324B' : dpData.themeColor;
       ctx.beginPath();
-      ctx.roundRect(photoCx - 220, photoCy + 175, 440, 52, 26);
+      ctx.roundRect(photoCx - 220, photoCy + (isEditorialSquare ? 215 : 175), 440, 52, 18);
       ctx.fill();
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3;
@@ -571,13 +615,13 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       ctx.font = 'bold 22px "Montserrat", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(dpData.badgeText.toUpperCase(), photoCx, photoCy + 201);
+      ctx.fillText(dpData.badgeText.toUpperCase(), photoCx, photoCy + (isEditorialSquare ? 241 : 201));
       ctx.restore();
 
       // Business Name
       ctx.save();
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = isEditorialSquare ? '#182230' : '#FFFFFF';
       ctx.font = '900 44px "Anton", "Montserrat", sans-serif';
       let bName = dpData.businessName.toUpperCase();
       if (ctx.measureText(bName).width > 900) {
@@ -585,7 +629,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       }
       ctx.fillText(bName, 540, 695);
 
-      ctx.fillStyle = '#FFC93C';
+      ctx.fillStyle = isEditorialSquare ? '#18324B' : '#FFC93C';
       ctx.font = 'bold 22px "Inter", sans-serif';
       ctx.fillText(dpData.tagline.toUpperCase(), 540, 735);
       ctx.restore();
@@ -603,11 +647,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         const py = servicesY + row * (pillH + 12);
 
         ctx.save();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.fillStyle = isEditorialSquare ? 'rgba(24, 50, 75, 0.08)' : 'rgba(255, 255, 255, 0.12)';
         ctx.beginPath();
         ctx.roundRect(px, py, pillW, pillH, 25);
         ctx.fill();
-        ctx.strokeStyle = `${dpData.themeColor}99`;
+        ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : `${dpData.themeColor}99`;
         ctx.lineWidth = 2;
         ctx.stroke();
 
@@ -616,8 +660,8 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.arc(px + 24, py + pillH / 2, 7, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = '#F8FAFC';
-        ctx.font = 'bold 20px "Inter", sans-serif';
+        ctx.fillStyle = isEditorialSquare ? '#182230' : '#F8FAFC';
+        ctx.font = '900 20px "Inter", sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         let sText = srv;
@@ -631,11 +675,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       // Hotline
       const contactY = 910;
       ctx.save();
-      ctx.fillStyle = '#064E2B';
+      ctx.fillStyle = isEditorialSquare ? '#18324B' : '#064E2B';
       ctx.beginPath();
       ctx.roundRect(140, contactY, 800, 72, 36);
       ctx.fill();
-      ctx.strokeStyle = '#25D366';
+      ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : '#25D366';
       ctx.lineWidth = 4;
       ctx.stroke();
 
@@ -648,13 +692,23 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
 
       // Address
       ctx.save();
-      ctx.fillStyle = '#94A3B8';
+      ctx.fillStyle = isEditorialSquare ? '#596579' : '#94A3B8';
       ctx.font = '500 18px "Inter", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`📍 ${dpData.address}`, 540, 1015);
       ctx.restore();
 
       const finalUrl = canvas.toDataURL('image/png', 1.0);
+      if (dpData.layoutStyle === 'square_editorial' && userPlan === 'free') {
+        showToast('Pro DP template', 'The Editorial Square template is available on the Day Pass or Pro plan.', 'info');
+        onOpenPricing();
+        return;
+      }
+      if (!onRecordExport()) {
+        showToast('Free DP trial complete', 'Your two free profile-picture downloads are used. Upgrade for unlimited DP exports.', 'info');
+        onOpenPricing();
+        return;
+      }
       const a = document.createElement('a');
       a.href = finalUrl;
       a.download = `${dpData.businessName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_whatsapp_dp.png`;
@@ -690,7 +744,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
               <span>WhatsApp Profile Picture (DP) Creator</span>
             </h1>
             <p className="text-[10px] text-gray-500">
-              For Tailors, Barbers, Mechanics & Artisans
+              For Tailors, Barbers, Mechanics & Artisans · {userPlan === 'free' ? `${freeDpsUsed}/2 free DPs used` : 'Unlimited DPs'}
             </p>
           </div>
 
@@ -713,7 +767,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
           <div className="flex items-center justify-between text-xs font-bold text-gray-700 dark:text-gray-300">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-              <span>Live 1:1 WhatsApp DP Preview (Always On Top)</span>
+              <span>Live 1:1 WhatsApp DP Preview</span>
             </span>
 
             {/* Crop Guide Toggle */}
@@ -727,7 +781,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>{showCropGuide ? 'Circle Crop ON' : 'Circle Crop OFF'}</span>
+              <span>{showCropGuide ? 'WhatsApp Crop ON' : 'WhatsApp Crop OFF'}</span>
             </button>
           </div>
 
@@ -859,7 +913,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
                 4 Core Services Displayed on Profile Picture
               </h3>
               <p className="text-[11px] text-gray-500">
-                Clients see these bullet points right inside your circular WhatsApp DP!
+                Clients see these bullet points on your WhatsApp DP.
               </p>
             </div>
 
@@ -948,6 +1002,33 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         {/* TAB 4: ACCENT THEME COLOR */}
         {activeTab === 'theme' && (
           <Card className="space-y-3">
+            <div>
+              <span className="text-xs font-extrabold text-gray-700 dark:text-gray-300">DP Template</span>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDpData((prev) => ({ ...prev, layoutStyle: 'circle_badge' }))}
+                  className={`tap-target rounded-xl border-2 p-3 text-left text-xs font-bold ${dpData.layoutStyle === 'circle_badge' ? 'border-[#0B6B3A] bg-green-50 dark:bg-green-950/30' : 'border-gray-200 dark:border-gray-700'}`}
+                >
+                  Classic Circle <span className="block text-[10px] font-normal text-gray-500">Available on free trial</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (userPlan === 'free') {
+                      onOpenPricing();
+                      showToast('Pro DP template', 'The Editorial Square template is available on the Day Pass or Pro plan.', 'info');
+                      return;
+                    }
+                    setDpData((prev) => ({ ...prev, layoutStyle: 'square_editorial' }));
+                  }}
+                  className={`tap-target rounded-xl border-2 p-3 text-left text-xs font-bold ${dpData.layoutStyle === 'square_editorial' ? 'border-[#0B6B3A] bg-green-50 dark:bg-green-950/30' : 'border-gray-200 dark:border-gray-700'}`}
+                >
+                  Editorial Square {userPlan === 'free' ? '🔒' : ''}
+                  <span className="block text-[10px] font-normal text-gray-500">Premium business-ready layout</span>
+                </button>
+              </div>
+            </div>
             <span className="text-xs font-extrabold text-gray-700 dark:text-gray-300">
               Pick Your Brand Color
             </span>
@@ -1003,8 +1084,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
             variant="whatsapp"
             size="lg"
             onClick={() => {
-              handleDownloadDP();
-              showToast('Ready for WhatsApp', 'Open WhatsApp > Settings > Tap Profile Picture > Select Downloaded DP!', 'success');
+              void handleDownloadDP();
             }}
             leftIcon={<Share2 className="w-5 h-5" />}
             className="font-bold text-xs"

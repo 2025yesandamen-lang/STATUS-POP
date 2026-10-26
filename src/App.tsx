@@ -69,6 +69,7 @@ import {
   synchronizeAccountData,
   clearAccountDataCache,
   recordFlyerCreated,
+  recordWhatsAppDpCreated,
   setReferralCookie,
 } from './lib/storage.ts';
 
@@ -882,6 +883,17 @@ function MainContent() {
           vendor={vendor}
           onBack={() => setCurrentView('home')}
           onOpenPricing={() => setIsPricingOpen(true)}
+          onRecordExport={() => {
+            const result = recordWhatsAppDpCreated(activePlan);
+            if (!result.canCreate) return false;
+            if (activePlan === 'free') {
+              setVendor((current) => ({
+                ...current,
+                whatsappDpsCreatedTotal: Math.min(2, current.whatsappDpsCreatedTotal + 1),
+              }));
+            }
+            return true;
+          }}
         />
       ) : currentView === 'events' ? (
         <SpecialEventsPage

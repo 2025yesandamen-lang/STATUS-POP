@@ -103,13 +103,8 @@ export const EVENT_CATEGORIES: EventCategoryMeta[] = [
   },
 ];
 
-// Helper to assemble 5 distinct layout formats per event:
-// 1. Circular Portal & Floating Multi-Spheres
-// 2. Organic Diagonal Wave / Split Card Frame
-// 3. Modern Rounded Arch Window & Date Stamp
-// 4. Luxury Emblem & Festive Typography Poster
-// 5. Custom Canvas Studio (Freeform Drag & Drop with custom containers, stickers, and text)
-export const SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
+// Standard celebration designs use four curated layouts plus the custom studio.
+const BASE_SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
   // --- INDEPENDENCE DAY NIGERIA ---
   {
     id: 'indep-01',
@@ -482,7 +477,7 @@ export const SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
   {
     id: 'ny-05',
     eventType: 'new_year_launch',
-    title: 'Custom Canvas Studio (Fireworks, Gold Dust & Sparkles)',
+    title: 'Custom Canvas Studio (Fireworks, Slate & Sparkles)',
     dateOrTheme: 'NEW YEAR BUILDER',
     tagline: 'CUSTOM NEW YEAR DESIGNER',
     defaultMessage: 'Add midnight fireworks, gold glitter dust, champagne sparkles, custom containers, and greetings to build your new year poster!',
@@ -492,7 +487,7 @@ export const SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
     designVariant: 5,
     layoutFormat: 'custom_studio',
     isProExclusive: false,
-    defaultServices: ['Fireworks Stickers', 'Gold Dust Backing', 'Draggable Text', 'Custom Containers'],
+    defaultServices: ['Fireworks Stickers', 'Professional Slate', 'Draggable Text', 'Custom Containers'],
   },
 
   // --- EID MUBARAK & RAMADAN ---
@@ -879,4 +874,23 @@ export const SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
     isProExclusive: false,
     defaultServices: ['5-Star Stickers', 'Cashback Badges', 'Gift Vouchers', 'Custom Frames'],
   },
+];
+
+export const SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
+  ...BASE_SPECIAL_EVENT_DESIGNS,
+  ...EVENT_CATEGORIES.map((category): SpecialEventDesign => ({
+    id: `${category.type}-professional`,
+    eventType: category.type,
+    title: 'Professional Editorial',
+    dateOrTheme: category.badge,
+    tagline: category.title.toUpperCase(),
+    defaultMessage: category.description,
+    accentColor: '#18324B',
+    secondaryColor: '#C6A66A',
+    heroGraphic: BASE_SPECIAL_EVENT_DESIGNS.find((design) => design.eventType === category.type)?.heroGraphic || '',
+    designVariant: 6,
+    layoutFormat: 'professional_editorial',
+    isProExclusive: true,
+    defaultServices: category.defaultServices,
+  })),
 ];

@@ -50,7 +50,8 @@ export type EventLayoutFormat =
   | 'organic_wave'    // Diagonal curved wave / split card with speaker/service bullets (like Church / Matters of Heart)
   | 'card_window'     // Elegant rounded arch/window with calendar tag & side photo
   | 'luxury_emblem'   // Pure emblem, glowing festive typography & seasonal icon (gorgeous with or without photo)
-  | 'custom_studio';  // Interactive drag & drop custom studio with user-picked icons, containers, text & backgrounds
+  | 'custom_studio'   // Interactive drag & drop custom studio with user-picked icons, containers, text & backgrounds
+  | 'professional_editorial';
 
 export type CanvasElementType = 'text' | 'sticker' | 'container' | 'badge';
 
@@ -92,7 +93,7 @@ export interface SpecialEventDesign {
   accentColor: string;
   secondaryColor: string;
   heroGraphic: string; // Image asset, seasonal photo, or emblem
-  designVariant: 1 | 2 | 3 | 4 | 5; // 5 real designs: 4 pre-curated + 1 custom drag & drop studio
+  designVariant: 1 | 2 | 3 | 4 | 5 | 6;
   layoutFormat: EventLayoutFormat;
   isProExclusive?: boolean;
   defaultServices: string[];
@@ -298,6 +299,7 @@ export interface VendorProfile {
   planExpiresAt?: string;
   flyersCreatedToday: number;
   flyersCreatedTotal: number;
+  whatsappDpsCreatedTotal: number;
   lastFlyerDate: string;
   isPhoneVerified?: boolean;
 

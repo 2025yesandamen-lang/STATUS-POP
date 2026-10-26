@@ -58,6 +58,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [paymentReport, setPaymentReport] = useState<PaymentReport | null>(null);
   const [paymentError, setPaymentError] = useState('');
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [grantEmail, setGrantEmail] = useState('');
+  const [grantPlan, setGrantPlan] = useState<'pro' | 'day_pass'>('pro');
+  const [grantDurationDays, setGrantDurationDays] = useState<'1' | '30' | '365'>('365');
+  const [isGrantingAccess, setIsGrantingAccess] = useState(false);
 
   const loadPayments = async () => {
     setIsLoadingPayments(true);
@@ -130,6 +134,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
     setStatus((current) => current ? { ...current, authenticated: false } : null);
     showToast('Signed out', 'Administrator session ended.', 'info');
+  };
+
+  const handleGrantAccess = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsGrantingAccess(true);
+    try {
+      const response = await fetch('/api/admin/entitlements', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: grantEmail,
+          plan: grantPlan,
+          durationDays: Number(grantDurationDays),
+        }),
+      });
+      const result = await response.json().catch(() => null) as { message?: string; email?: string; expiresAt?: string } | null;
+      if (!response.ok) throw new Error(result?.message || 'Could not grant account access.');
+      setGrantEmail('');
+      showToast(
+        'Plan access granted',
+        `${result?.email || 'Account'} has ${grantPlan === 'pro' ? 'Pro' : 'Day Pass'} access until ${new Date(result?.expiresAt || '').toLocaleDateString()}.`,
+        'success'
+      );
+    } catch (error) {
+      showToast('Could not grant access', error instanceof Error ? error.message : 'Try again later.', 'error');
+    } finally {
+      setIsGrantingAccess(false);
+    }
   };
 
   if (isLoading) {
@@ -222,6 +255,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             <dt>Verified payments</dt><dd>{status.paymentsConfigured ? 'Configured' : 'Disabled'}</dd>
           </div>
         </dl>
+      </Card>
+
+      <Card padding="md" className="space-y-4">
+        <div>
+          <h2 className="font-semibold">Grant staff or demo plan access</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Create the regular StatusPop account first, then grant plan access to the same sign-in email. Grants expire automatically.
+          </p>
+        </div>
+        <form onSubmit={handleGrantAccess} className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium sm:col-span-2">
+            Account sign-in email
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={grantEmail}
+              onChange={(event) => setGrantEmail(event.target.value)}
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-base dark:border-gray-700 dark:bg-gray-800"
+              placeholder="staff@example.com"
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium">
+            Plan
+            <select
+              value={grantPlan}
+              onChange={(event) => {
+                const plan = event.target.value as 'pro' | 'day_pass';
+                setGrantPlan(plan);
+                setGrantDurationDays(plan === 'day_pass' ? '1' : '30');
+              }}
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800"
+            >
+              <option value="pro">Pro (₦2,500/month)</option>
+              <option value="day_pass">Day Pass (₦500/24 hours)</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm font-medium">
+            Access duration
+            <select
+              value={grantDurationDays}
+              onChange={(event) => setGrantDurationDays(event.target.value as '1' | '30' | '365')}
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800"
+            >
+              {grantPlan === 'day_pass' ? (
+                <option value="1">24 hours</option>
+              ) : (
+                <>
+                  <option value="30">30 days</option>
+                  <option value="365">365 days</option>
+                </>
+              )}
+            </select>
+          </label>
+          <Button type="submit" isLoading={isGrantingAccess} className="sm:col-span-2">
+            Grant plan access
+          </Button>
+        </form>
       </Card>
 
       <Card padding="md" className="space-y-4">

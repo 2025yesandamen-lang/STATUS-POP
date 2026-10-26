@@ -22,6 +22,7 @@ const DEFAULT_VENDOR: VendorProfile = {
   plan: 'free',
   flyersCreatedToday: 0,
   flyersCreatedTotal: 0,
+  whatsappDpsCreatedTotal: 0,
   lastFlyerDate: new Date().toISOString().split('T')[0],
   isPhoneVerified: false,
   isBankVerified: false,
@@ -36,6 +37,20 @@ let cloudWriteQueue = Promise.resolve();
 
 function writeVendorLocally(profile: VendorProfile): void {
   localStorage.setItem(STORAGE_KEYS.VENDOR, JSON.stringify(profile));
+}
+
+export function recordWhatsAppDpCreated(plan: UserPlan = 'free'): { canCreate: boolean; remaining: number } {
+  if (plan !== 'free') return { canCreate: true, remaining: 999 };
+
+  const profile = getVendorProfile();
+  const freeLimit = 2;
+  if (profile.whatsappDpsCreatedTotal >= freeLimit) {
+    return { canCreate: false, remaining: 0 };
+  }
+
+  profile.whatsappDpsCreatedTotal += 1;
+  saveVendorProfile(profile);
+  return { canCreate: true, remaining: freeLimit - profile.whatsappDpsCreatedTotal };
 }
 
 function writeProductsLocally(products: ProductItem[]): void {
@@ -115,11 +130,18 @@ export async function synchronizeAccountData(): Promise<{ profile: VendorProfile
         cloudData.profile.flyersCreatedTotal || 0,
         localProfile.flyersCreatedTotal
       ),
+      whatsappDpsCreatedTotal: Math.max(
+        cloudData.profile.whatsappDpsCreatedTotal || 0,
+        localProfile.whatsappDpsCreatedTotal
+      ),
     };
     writeVendorLocally(profile);
     writeProductsLocally(cloudData.products);
     cloudSyncEnabled = true;
-    if (profile.flyersCreatedTotal !== cloudData.profile.flyersCreatedTotal) {
+    if (
+      profile.flyersCreatedTotal !== cloudData.profile.flyersCreatedTotal ||
+      profile.whatsappDpsCreatedTotal !== cloudData.profile.whatsappDpsCreatedTotal
+    ) {
       queueAccountDataWrite();
     }
     return { profile, products: cloudData.products };
@@ -194,6 +216,9 @@ export function getVendorProfile(): VendorProfile {
     profile.flyersCreatedTotal = Number.isInteger(profile.flyersCreatedTotal)
       ? Math.max(0, profile.flyersCreatedTotal)
       : profile.flyersCreatedToday || 0;
+    profile.whatsappDpsCreatedTotal = Number.isInteger(profile.whatsappDpsCreatedTotal)
+      ? Math.max(0, profile.whatsappDpsCreatedTotal)
+      : 0;
     const today = new Date().toISOString().split('T')[0];
     if (profile.lastFlyerDate !== today) {
       profile.flyersCreatedToday = 0;

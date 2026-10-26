@@ -41,6 +41,14 @@ export async function ensurePaymentSchema(): Promise<void> {
         expires_at TIMESTAMPTZ NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS admin_entitlement_grants (
+        id BIGSERIAL PRIMARY KEY,
+        vendor_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        plan TEXT NOT NULL CHECK (plan IN ('day_pass', 'pro')),
+        duration_days INTEGER NOT NULL CHECK (duration_days IN (1, 30, 365)),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
     `).then(() => undefined).catch((error) => {
       schemaPromise = null;
       throw error;
@@ -168,6 +176,59 @@ export async function getVendorEntitlement(vendorId: string): Promise<{ plan: 'f
   );
   const row = result.rows[0];
   return row ? { plan: row.plan as PaidPlan, expiresAt: new Date(row.expires_at).toISOString() } : { plan: 'free', expiresAt: null };
+}
+
+export async function grantVendorEntitlementByEmail(
+  email: string,
+  plan: PaidPlan,
+  durationDays: 1 | 30 | 365
+): Promise<{ expiresAt: string; email: string } | null> {
+  if (!pool) throw new Error('Payment storage is not configured.');
+  await ensurePaymentSchema();
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const accounts = await client.query(
+      `SELECT id, email FROM "user" WHERE LOWER(email) = LOWER($1) LIMIT 2`,
+      [email]
+    );
+    if (accounts.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    if (accounts.rows.length > 1) {
+      throw new Error('Multiple accounts use this email address.');
+    }
+
+    const account = accounts.rows[0] as { id: string; email: string };
+    const updated = await client.query(
+      `INSERT INTO vendor_entitlements (vendor_id, plan, expires_at)
+       VALUES ($1, $2, NOW() + ($3::int * INTERVAL '1 day'))
+       ON CONFLICT (vendor_id) DO UPDATE SET
+         plan = EXCLUDED.plan,
+         expires_at = EXCLUDED.expires_at,
+         updated_at = NOW()
+       RETURNING expires_at`,
+      [account.id, plan, durationDays]
+    );
+    await client.query(
+      `INSERT INTO admin_entitlement_grants (vendor_id, email, plan, duration_days)
+       VALUES ($1, $2, $3, $4)`,
+      [account.id, account.email, plan, durationDays]
+    );
+    await client.query('COMMIT');
+
+    return {
+      email: account.email,
+      expiresAt: new Date(updated.rows[0].expires_at).toISOString(),
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function processPaystackWebhookEvent(event: unknown): Promise<boolean> {

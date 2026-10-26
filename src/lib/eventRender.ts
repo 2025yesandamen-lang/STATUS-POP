@@ -632,24 +632,22 @@ export async function exportEventFlyerToDataUrl(
 
   // 1. Draw Background
   const customBg = data.customBackground;
-  if (customBg === 'gold_sparkles') {
-    // Gold Dust & Night Sky (matching stock-vector-happy-new-year-with-gold-stars...)
-    const g = ctx.createLinearGradient(0, 0, 0, height);
-    g.addColorStop(0, '#0F0B05');
-    g.addColorStop(0.5, '#2A1B0A');
-    g.addColorStop(1, '#080502');
+  if (customBg === 'professional_slate') {
+    const g = ctx.createLinearGradient(0, 0, width, height);
+    g.addColorStop(0, '#F8FAFC');
+    g.addColorStop(0.58, '#EEF2F6');
+    g.addColorStop(1, '#DCE3EA');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
 
-    // Gold dust sparkles
-    ctx.fillStyle = '#FFD700';
-    for (let i = 0; i < 40; i++) {
-      const rx = (i * 47) % width;
-      const ry = (i * 31) % 400;
-      ctx.beginPath();
-      ctx.arc(rx, ry, (i % 3) * 2 + 1, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.035)';
+    ctx.beginPath();
+    ctx.moveTo(width * 0.68, 0);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(width, height);
+    ctx.lineTo(width * 0.88, height);
+    ctx.closePath();
+    ctx.fill();
   } else if (customBg === 'valentine_red') {
     // Red Velvet & Floating Hearts (matching Capture_2b77a995.PNG)
     const g = ctx.createRadialGradient(width / 2, height / 2, 80, width / 2, height / 2, width);
@@ -739,16 +737,69 @@ export async function exportEventFlyerToDataUrl(
       }
     }
 
-    // Default container if user hasn't added one yet
-    if (!elements.some((e) => e.type === 'container') && shouldIncludePhoto && heroImg) {
-      drawCustomContainerWithPhoto(
-        ctx,
-        { id: 'def-cont', type: 'container', x: 580, y: 160, width: 440, height: 440, shapeType: 'circle' },
+  } else if (layoutFormat === 'professional_editorial') {
+    const photoX = 590;
+    const photoY = 156;
+    const photoW = 440;
+    const photoH = 424;
+    ctx.save();
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 12;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(photoX, photoY, photoW, photoH, 28);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(photoX, photoY, photoW, photoH, 28);
+    ctx.clip();
+    if (shouldIncludePhoto && heroImg) {
+      const scale = Math.max(photoW / heroImg.naturalWidth, photoH / heroImg.naturalHeight);
+      const sourceWidth = photoW / scale;
+      const sourceHeight = photoH / scale;
+      ctx.drawImage(
         heroImg,
-        design.accentColor,
-        design.secondaryColor
+        (heroImg.naturalWidth - sourceWidth) / 2,
+        (heroImg.naturalHeight - sourceHeight) / 2,
+        sourceWidth,
+        sourceHeight,
+        photoX,
+        photoY,
+        photoW,
+        photoH
       );
+    } else {
+      const fill = ctx.createLinearGradient(photoX, photoY, photoX + photoW, photoY + photoH);
+      fill.addColorStop(0, design.accentColor);
+      fill.addColorStop(1, design.secondaryColor);
+      ctx.fillStyle = fill;
+      ctx.fillRect(photoX, photoY, photoW, photoH);
+      drawSeasonalEmblem(ctx, design.eventType, photoX + photoW / 2, photoY + photoH / 2, 135, '#FFFFFF', '#FFFFFF');
     }
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.roundRect(photoX, photoY, photoW, photoH, 28);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = design.accentColor;
+    ctx.beginPath();
+    ctx.roundRect(photoX + 18, photoY + photoH - 58, photoW - 36, 38, 12);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 16px "Montserrat", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('A PROFESSIONAL CELEBRATION', photoX + photoW / 2, photoY + photoH - 39);
+    ctx.restore();
   } else if (layoutFormat === 'circular_portal') {
     // --- FORMAT 1: CIRCULAR PORTAL ---
     const cx = 740;
@@ -943,11 +994,11 @@ export async function exportEventFlyerToDataUrl(
   ctx.save();
   ctx.fillStyle = '#0B1C38';
   ctx.beginPath();
-  ctx.roundRect(40, servicesY, width - 80, 125, 20);
+  ctx.roundRect(40, servicesY, width - 80, 132, 20);
   ctx.fill();
 
   ctx.fillStyle = '#FFC93C';
-  ctx.font = 'bold 18px "Inter", sans-serif';
+  ctx.font = '900 19px "Inter", sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('WE POWER PROGRESS • WHAT WE DO:', 65, servicesY + 28);
 
@@ -956,7 +1007,7 @@ export async function exportEventFlyerToDataUrl(
 
   activeServices.forEach((serv, i) => {
     const colX = 60 + i * colWidth;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.24)';
     ctx.beginPath();
     ctx.roundRect(colX, servicesY + 45, colWidth - 14, 58, 12);
     ctx.fill();
@@ -968,12 +1019,12 @@ export async function exportEventFlyerToDataUrl(
       ctx,
       serv,
       colX + (colWidth - 14) / 2,
-      servicesY + 74,
+      servicesY + 76,
       colWidth - 24,
-      17,
-      12,
+      19,
+      15,
       '"Inter", sans-serif',
-      'bold',
+      '900',
       'center'
     );
   });
