@@ -56,7 +56,7 @@ const DP_SECTORS: DPSectorPreset[] = [
     name: 'Tailor & Fashion Designer',
     icon: '✂️',
     tagline: 'BESPOKE SENATOR & NATIVE WEARS',
-    themeColor: '#0B6B3A',
+    themeColor: '#176B5B',
     badgeText: 'CERTIFIED MASTER TAILOR',
     defaultServices: ['Senator Styles', 'Agbada & Kaftan', 'Corporate Suits', '48hr Express Delivery'],
     samplePhoto: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&auto=format&fit=crop&q=80',
@@ -66,7 +66,7 @@ const DP_SECTORS: DPSectorPreset[] = [
     name: 'Executive Barber & Salon',
     icon: '💈',
     tagline: 'VIP GROOMING & SKIN FADES',
-    themeColor: '#D97706',
+    themeColor: '#9A653C',
     badgeText: 'VIP EXECUTIVE LOUNGE',
     defaultServices: ['Skin Fade & Beard Dye', 'Facial & Black Mask', 'Home VIP Service', 'Dreadlocks & Braids'],
     samplePhoto: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=80',
@@ -76,7 +76,7 @@ const DP_SECTORS: DPSectorPreset[] = [
     name: 'Auto Mechanic & OBD Scan',
     icon: '🔧',
     tagline: 'TOKUNBO ENGINES & DIAGNOSTICS',
-    themeColor: '#DC2626',
+    themeColor: '#A4493D',
     badgeText: 'TESTED & COMPUTER SCANNED',
     defaultServices: ['Computer OBD Scanning', 'Gearbox & Engine Fix', 'Tokunbo Spare Parts', '24/7 Highway Towing'],
     samplePhoto: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=800&auto=format&fit=crop&q=80',
@@ -86,7 +86,7 @@ const DP_SECTORS: DPSectorPreset[] = [
     name: 'Electrician & AC Repair',
     icon: '⚡',
     tagline: 'COOLING, INVERTER & WIRING',
-    themeColor: '#2563EB',
+    themeColor: '#456B8A',
     badgeText: 'RAPID 1HR RESPONSE',
     defaultServices: ['AC Servicing & Gas', 'Solar & Inverter Setup', 'Building Wiring', 'Tested Safety Standards'],
     samplePhoto: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80',
@@ -96,7 +96,7 @@ const DP_SECTORS: DPSectorPreset[] = [
     name: 'Chef, Catering & Buka',
     icon: '🍲',
     tagline: 'PARTY JOLLOF & FRESH SOUPS',
-    themeColor: '#EA580C',
+    themeColor: '#B85F3C',
     badgeText: 'CLEAN TASTE OF NAIJA',
     defaultServices: ['Firewood Party Jollof', 'Bowls of Native Soups', 'Peppered Meat & Fish', 'Outdoor Event Catering'],
     samplePhoto: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
@@ -106,7 +106,7 @@ const DP_SECTORS: DPSectorPreset[] = [
     name: 'Phones & Laptop Hub',
     icon: '📱',
     tagline: 'UK USED PHONES & ACCESSORIES',
-    themeColor: '#7C3AED',
+    themeColor: '#65558A',
     badgeText: 'ORIGINAL WITH WARRANTY',
     defaultServices: ['Clean UK Used Phones', 'Screen & Battery Swap', 'MacBook & Laptops', 'Nationwide Waybill'],
     samplePhoto: 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=800&auto=format&fit=crop&q=80',
@@ -207,7 +207,9 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         const isEditorialSquare = dpData.layoutStyle === 'square_editorial';
         const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
         if (isEditorialSquare) {
-          ctx.fillStyle = '#F3F1EB';
+          bgGrad.addColorStop(0, '#FBFAF6');
+          bgGrad.addColorStop(1, '#E9F0EB');
+          ctx.fillStyle = bgGrad;
           ctx.fillRect(0, 0, 1080, 1080);
         } else if (dpData.layoutStyle === 'luxury_gold') {
           bgGrad.addColorStop(0, '#0F1218');
@@ -225,7 +227,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         // Subtle decorative rings centered at 540, 540
         ctx.save();
         if (isEditorialSquare) {
-          ctx.strokeStyle = '#C6A66A';
+          ctx.strokeStyle = `${dpData.themeColor}55`;
           ctx.lineWidth = 3;
           ctx.strokeRect(34, 34, 1012, 1012);
         } else {
@@ -262,7 +264,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.shadowColor = isEditorialSquare ? 'rgba(24, 34, 48, 0.22)' : dpData.themeColor;
         ctx.shadowBlur = 30;
         ctx.shadowOffsetY = 12;
-        ctx.fillStyle = isEditorialSquare ? '#C6A66A' : dpData.themeColor;
+        ctx.fillStyle = dpData.themeColor;
         if (isEditorialSquare) {
           ctx.beginPath();
           ctx.roundRect(photoCx - photoSize / 2 - 12, photoCy - photoSize / 2 - 12, photoSize + 24, photoSize + 24, 36);
@@ -327,7 +329,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.3)';
         ctx.shadowBlur = 10;
-        ctx.fillStyle = isEditorialSquare ? '#18324B' : dpData.themeColor;
+        ctx.fillStyle = dpData.themeColor;
         ctx.beginPath();
         ctx.roundRect(photoCx - 220, photoCy + (isEditorialSquare ? 215 : 175), 440, 52, 18);
         ctx.fill();
@@ -354,7 +356,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         ctx.fillText(bName, 540, 695);
 
         // Tagline / Slogan
-        ctx.fillStyle = isEditorialSquare ? '#18324B' : '#FFC93C';
+        ctx.fillStyle = isEditorialSquare ? '#456156' : '#FFC93C';
         ctx.font = 'bold 22px "Inter", sans-serif';
         ctx.fillText(dpData.tagline.toUpperCase(), 540, 735);
         ctx.restore();
@@ -372,11 +374,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
           const py = servicesY + row * (pillH + 12);
 
           ctx.save();
-          ctx.fillStyle = isEditorialSquare ? 'rgba(24, 50, 75, 0.08)' : 'rgba(255, 255, 255, 0.12)';
+          ctx.fillStyle = isEditorialSquare ? `${dpData.themeColor}12` : 'rgba(255, 255, 255, 0.12)';
           ctx.beginPath();
           ctx.roundRect(px, py, pillW, pillH, 25);
           ctx.fill();
-          ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : `${dpData.themeColor}99`;
+          ctx.strokeStyle = `${dpData.themeColor}66`;
           ctx.lineWidth = 2;
           ctx.stroke();
 
@@ -401,11 +403,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         // 7. Hotline & WhatsApp Contact Bar at Bottom
         const contactY = 910;
         ctx.save();
-        ctx.fillStyle = isEditorialSquare ? '#18324B' : '#064E2B';
+        ctx.fillStyle = isEditorialSquare ? dpData.themeColor : '#064E2B';
         ctx.beginPath();
         ctx.roundRect(140, contactY, 800, 72, 36);
         ctx.fill();
-        ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : '#25D366';
+        ctx.strokeStyle = isEditorialSquare ? `${dpData.themeColor}AA` : '#25D366';
         ctx.lineWidth = 4;
         ctx.stroke();
 
@@ -492,7 +494,9 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       // 1. Background
       const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
       if (isEditorialSquare) {
-        ctx.fillStyle = '#F3F1EB';
+        bgGrad.addColorStop(0, '#FBFAF6');
+        bgGrad.addColorStop(1, '#E9F0EB');
+        ctx.fillStyle = bgGrad;
       } else {
         bgGrad.addColorStop(0, '#0F172A');
         bgGrad.addColorStop(0.5, '#1E293B');
@@ -504,7 +508,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       // Rings
       ctx.save();
       if (isEditorialSquare) {
-        ctx.strokeStyle = '#C6A66A';
+        ctx.strokeStyle = `${dpData.themeColor}55`;
         ctx.lineWidth = 3;
         ctx.strokeRect(34, 34, 1012, 1012);
       } else {
@@ -538,7 +542,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       ctx.shadowColor = isEditorialSquare ? 'rgba(24, 34, 48, 0.22)' : dpData.themeColor;
       ctx.shadowBlur = 30;
       ctx.shadowOffsetY = 12;
-      ctx.fillStyle = isEditorialSquare ? '#C6A66A' : dpData.themeColor;
+      ctx.fillStyle = dpData.themeColor;
       if (isEditorialSquare) {
         ctx.beginPath();
         ctx.roundRect(photoCx - photoSize / 2 - 12, photoCy - photoSize / 2 - 12, photoSize + 24, photoSize + 24, 36);
@@ -603,7 +607,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.3)';
       ctx.shadowBlur = 10;
-      ctx.fillStyle = isEditorialSquare ? '#18324B' : dpData.themeColor;
+      ctx.fillStyle = dpData.themeColor;
       ctx.beginPath();
       ctx.roundRect(photoCx - 220, photoCy + (isEditorialSquare ? 215 : 175), 440, 52, 18);
       ctx.fill();
@@ -629,7 +633,7 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       }
       ctx.fillText(bName, 540, 695);
 
-      ctx.fillStyle = isEditorialSquare ? '#18324B' : '#FFC93C';
+      ctx.fillStyle = isEditorialSquare ? '#456156' : '#FFC93C';
       ctx.font = 'bold 22px "Inter", sans-serif';
       ctx.fillText(dpData.tagline.toUpperCase(), 540, 735);
       ctx.restore();
@@ -647,11 +651,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
         const py = servicesY + row * (pillH + 12);
 
         ctx.save();
-        ctx.fillStyle = isEditorialSquare ? 'rgba(24, 50, 75, 0.08)' : 'rgba(255, 255, 255, 0.12)';
+        ctx.fillStyle = isEditorialSquare ? `${dpData.themeColor}12` : 'rgba(255, 255, 255, 0.12)';
         ctx.beginPath();
         ctx.roundRect(px, py, pillW, pillH, 25);
         ctx.fill();
-        ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : `${dpData.themeColor}99`;
+        ctx.strokeStyle = `${dpData.themeColor}66`;
         ctx.lineWidth = 2;
         ctx.stroke();
 
@@ -675,11 +679,11 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       // Hotline
       const contactY = 910;
       ctx.save();
-      ctx.fillStyle = isEditorialSquare ? '#18324B' : '#064E2B';
+      ctx.fillStyle = isEditorialSquare ? dpData.themeColor : '#064E2B';
       ctx.beginPath();
       ctx.roundRect(140, contactY, 800, 72, 36);
       ctx.fill();
-      ctx.strokeStyle = isEditorialSquare ? '#C6A66A' : '#25D366';
+      ctx.strokeStyle = isEditorialSquare ? `${dpData.themeColor}AA` : '#25D366';
       ctx.lineWidth = 4;
       ctx.stroke();
 
@@ -1035,12 +1039,12 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
 
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {[
-                { name: 'Naija Green', color: '#0B6B3A' },
-                { name: 'Safety Amber', color: '#D97706' },
-                { name: 'Fire Red', color: '#DC2626' },
-                { name: 'Tech Blue', color: '#2563EB' },
-                { name: 'Spicy Orange', color: '#EA580C' },
-                { name: 'Royal Purple', color: '#7C3AED' },
+                { name: 'Evergreen', color: '#176B5B' },
+                { name: 'Warm Bronze', color: '#9A653C' },
+                { name: 'Terracotta', color: '#A4493D' },
+                { name: 'Steel Blue', color: '#456B8A' },
+                { name: 'Copper', color: '#B85F3C' },
+                { name: 'Plum', color: '#65558A' },
               ].map((c) => (
                 <button
                   key={c.color}
