@@ -1093,7 +1093,7 @@ function MainContent() {
                   Add Your Product Photos (1 to 4)
                 </h2>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Snap with your phone camera or upload from gallery. Works on all Android phones!
+                  Snap with your phone camera or upload from gallery. Photos automatically fill and clip to each template frame on every plan.
                 </p>
               </div>
 

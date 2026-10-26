@@ -71,15 +71,23 @@ export function drawImageInSlot(
   height: number,
   options: { borderRadius?: number; clipShape?: 'circle' } = {}
 ): void {
+  const imageWidth = 'naturalWidth' in image && typeof image.naturalWidth === 'number'
+    ? image.naturalWidth
+    : image.width;
+  const imageHeight = 'naturalHeight' in image && typeof image.naturalHeight === 'number'
+    ? image.naturalHeight
+    : image.height;
+  if (!Number.isFinite(imageWidth) || imageWidth <= 0 || !Number.isFinite(imageHeight) || imageHeight <= 0) {
+    throw new Error('Cannot fit an image into a template slot before it has valid dimensions.');
+  }
+
   const x = centerX - width / 2;
   const y = centerY - height / 2;
-  const imageWidth = image.width;
-  const imageHeight = image.height;
-  const scale = Math.max(width / imageWidth, height / imageHeight);
-  const sourceWidth = width / scale;
-  const sourceHeight = height / scale;
-  const sourceX = (imageWidth - sourceWidth) / 2;
-  const sourceY = (imageHeight - sourceHeight) / 2;
+  const coverScale = Math.max(width / imageWidth, height / imageHeight);
+  const cropWidth = width / coverScale;
+  const cropHeight = height / coverScale;
+  const cropX = (imageWidth - cropWidth) / 2;
+  const cropY = (imageHeight - cropHeight) / 2;
 
   ctx.save();
   ctx.beginPath();
@@ -91,7 +99,7 @@ export function drawImageInSlot(
     ctx.rect(x, y, width, height);
   }
   ctx.clip();
-  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+  ctx.drawImage(image, cropX, cropY, cropWidth, cropHeight, x, y, width, height);
   ctx.restore();
 }
 
