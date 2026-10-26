@@ -31,6 +31,7 @@ export function calculateFittedFontSize(
       if (metrics.width <= maxWidth) {
         return currentSize;
       }
+
     } else {
       const words = text.split(' ');
       let lines = 1;
@@ -59,6 +60,39 @@ export function calculateFittedFontSize(
   }
 
   return minSize;
+}
+
+export function drawImageInSlot(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource & { width: number; height: number },
+  centerX: number,
+  centerY: number,
+  width: number,
+  height: number,
+  options: { borderRadius?: number; clipShape?: 'circle' } = {}
+): void {
+  const x = centerX - width / 2;
+  const y = centerY - height / 2;
+  const imageWidth = image.width;
+  const imageHeight = image.height;
+  const scale = Math.max(width / imageWidth, height / imageHeight);
+  const sourceWidth = width / scale;
+  const sourceHeight = height / scale;
+  const sourceX = (imageWidth - sourceWidth) / 2;
+  const sourceY = (imageHeight - sourceHeight) / 2;
+
+  ctx.save();
+  ctx.beginPath();
+  if (options.clipShape === 'circle') {
+    ctx.ellipse(centerX, centerY, width / 2, height / 2, 0, 0, Math.PI * 2);
+  } else if (options.borderRadius) {
+    ctx.roundRect(x, y, width, height, options.borderRadius);
+  } else {
+    ctx.rect(x, y, width, height);
+  }
+  ctx.clip();
+  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+  ctx.restore();
 }
 
 /**
@@ -199,13 +233,10 @@ export async function exportFlyerToDataUrl(
           ctx.shadowOffsetY = layer.shadowOffsetY || 15;
         }
 
-        if (layer.borderRadius) {
-          ctx.beginPath();
-          ctx.roundRect(px - pw / 2, py - ph / 2, pw, ph, layer.borderRadius);
-          ctx.clip();
-        }
-
-        ctx.drawImage(imgObj, px - pw / 2, py - ph / 2, pw, ph);
+        drawImageInSlot(ctx, imgObj, px, py, pw, ph, {
+          borderRadius: layer.borderRadius,
+          clipShape: layer.clipShape,
+        });
         ctx.restore();
 
         // Multi-Product Support: Separate Name & Price per slot (e.g. iPhone, Samsung, Tecno, Itel)

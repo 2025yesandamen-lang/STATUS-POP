@@ -364,7 +364,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> 1 Real Special Event Design per celebration (Independence, New Week, Valentine)
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> All 15+ sector templates
+                      <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Current sector designs plus premium studio templates
                     </li>
                     <li className="flex items-center gap-1.5">
                       <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> High-res PNG export
@@ -407,7 +407,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Zero watermark forever
                     </li>
                     <li className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> All 15+ premium templates
+                      <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Premium Studio designs and festive packs
                     </li>
                     <li className="flex items-center gap-1.5">
                       <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> All 3 aspect ratios (9:16, 1:1, 4:5)
@@ -460,7 +460,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={onOpenTemplates}
               className="hover:text-white transition-colors"
             >
-              All 15 Templates
+              All Templates
             </button>
             <span>•</span>
             <button

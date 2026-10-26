@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { FlyerTemplate, UserFlyerData, ASPECT_RATIOS } from '../../types/index.ts';
 import { formatNaira, calculateDiscount } from '../../lib/format.ts';
-import { calculateFittedFontSize } from '../../lib/render.ts';
+import { calculateFittedFontSize, drawImageInSlot } from '../../lib/render.ts';
 import { ensureFontsLoaded } from '../../lib/imageProcessing.ts';
 import { drawSectorBackgroundPattern, drawSectorDecorations } from '../../lib/sectorGraphics.ts';
 
@@ -137,13 +137,10 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
               ctx.shadowOffsetY = layer.shadowOffsetY || 15;
             }
 
-            if (layer.borderRadius) {
-              ctx.beginPath();
-              ctx.roundRect(px - pw / 2, py - ph / 2, pw, ph, layer.borderRadius);
-              ctx.clip();
-            }
-
-            ctx.drawImage(imgObj, px - pw / 2, py - ph / 2, pw, ph);
+            drawImageInSlot(ctx, imgObj, px, py, pw, ph, {
+              borderRadius: layer.borderRadius,
+              clipShape: layer.clipShape,
+            });
             ctx.restore();
 
             // Multi-Product Support: Separate Name & Price per slot (e.g. iPhone, Samsung, Tecno, Itel)

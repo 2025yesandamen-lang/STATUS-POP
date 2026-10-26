@@ -131,6 +131,7 @@ export interface ProductImageLayer extends BaseLayer {
   shadowOffsetY?: number;
   shadowOpacity?: number;
   borderRadius?: number;
+  clipShape?: 'circle';
   label?: string;
 }
 
@@ -296,6 +297,7 @@ export interface VendorProfile {
   plan: UserPlan;
   planExpiresAt?: string;
   flyersCreatedToday: number;
+  flyersCreatedTotal: number;
   lastFlyerDate: string;
   isPhoneVerified?: boolean;
 

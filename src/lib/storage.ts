@@ -1,4 +1,4 @@
-import { VendorProfile, ProductItem, AnalyticsEvent } from '../types/index.ts';
+import { VendorProfile, ProductItem, AnalyticsEvent, UserPlan } from '../types/index.ts';
 import { uploadMedia } from './media.ts';
 
 const STORAGE_KEYS = {
@@ -21,6 +21,7 @@ const DEFAULT_VENDOR: VendorProfile = {
   referralCode: '',
   plan: 'free',
   flyersCreatedToday: 0,
+  flyersCreatedTotal: 0,
   lastFlyerDate: new Date().toISOString().split('T')[0],
   isPhoneVerified: false,
   isBankVerified: false,
@@ -106,10 +107,21 @@ export async function synchronizeAccountData(): Promise<{ profile: VendorProfile
   if (!isCurrentSync()) throw new Error('Account data sync was cancelled.');
   const cloudData = await response.json() as { profile: VendorProfile | null; products: ProductItem[] };
   if (cloudData.profile) {
-    const profile = { ...cloudData.profile, id: cloudData.profile.id || getVendorProfile().id };
+    const localProfile = getVendorProfile();
+    const profile = {
+      ...cloudData.profile,
+      id: cloudData.profile.id || localProfile.id,
+      flyersCreatedTotal: Math.max(
+        cloudData.profile.flyersCreatedTotal || 0,
+        localProfile.flyersCreatedTotal
+      ),
+    };
     writeVendorLocally(profile);
     writeProductsLocally(cloudData.products);
     cloudSyncEnabled = true;
+    if (profile.flyersCreatedTotal !== cloudData.profile.flyersCreatedTotal) {
+      queueAccountDataWrite();
+    }
     return { profile, products: cloudData.products };
   }
 
@@ -179,6 +191,9 @@ export function getVendorProfile(): VendorProfile {
     profile.planExpiresAt = undefined;
     profile.isBankVerified = false;
     profile.paystackSubaccountCode = undefined;
+    profile.flyersCreatedTotal = Number.isInteger(profile.flyersCreatedTotal)
+      ? Math.max(0, profile.flyersCreatedTotal)
+      : profile.flyersCreatedToday || 0;
     const today = new Date().toISOString().split('T')[0];
     if (profile.lastFlyerDate !== today) {
       profile.flyersCreatedToday = 0;
@@ -237,11 +252,9 @@ export function lookupVendorByPhone(phone: string): VendorProfile | null {
   }
 }
 
-export function recordFlyerCreated(): { canCreate: boolean; remaining: number } {
+export function recordFlyerCreated(plan: UserPlan = 'free'): { canCreate: boolean; remaining: number } {
   const profile = getVendorProfile();
-  const isPaid =
-    profile.plan === 'pro' ||
-    (profile.plan === 'day_pass' && profile.planExpiresAt && new Date(profile.planExpiresAt) > new Date());
+  const isPaid = plan !== 'free';
 
   if (isPaid) {
     profile.flyersCreatedToday += 1;
@@ -250,15 +263,16 @@ export function recordFlyerCreated(): { canCreate: boolean; remaining: number } 
     return { canCreate: true, remaining: 999 };
   }
 
-  const dailyLimit = 3;
-  if (profile.flyersCreatedToday >= dailyLimit) {
+  const freeFlyerLimit = 5;
+  if (profile.flyersCreatedTotal >= freeFlyerLimit) {
     return { canCreate: false, remaining: 0 };
   }
 
   profile.flyersCreatedToday += 1;
+  profile.flyersCreatedTotal += 1;
   saveVendorProfile(profile);
-  recordAnalyticsEvent('flyer_created', { plan: 'free', count: profile.flyersCreatedToday });
-  return { canCreate: true, remaining: dailyLimit - profile.flyersCreatedToday };
+  recordAnalyticsEvent('flyer_created', { plan: 'free', count: profile.flyersCreatedTotal });
+  return { canCreate: true, remaining: freeFlyerLimit - profile.flyersCreatedTotal };
 }
 
 export function getProducts(): ProductItem[] {

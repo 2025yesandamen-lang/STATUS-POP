@@ -327,6 +327,11 @@ function sanitizeVendorProfile(input: unknown, userId: string, email: string): V
     referredBy: typeof profile.referredBy === 'string' ? profile.referredBy.slice(0, 80) : undefined,
     plan: 'free',
     flyersCreatedToday: Number.isInteger(profile.flyersCreatedToday) ? Math.max(0, Math.min(10000, profile.flyersCreatedToday || 0)) : 0,
+    flyersCreatedTotal: Number.isInteger(profile.flyersCreatedTotal)
+      ? Math.max(0, Math.min(10000, profile.flyersCreatedTotal || 0))
+      : Number.isInteger(profile.flyersCreatedToday)
+        ? Math.max(0, Math.min(10000, profile.flyersCreatedToday || 0))
+        : 0,
     lastFlyerDate: typeof profile.lastFlyerDate === 'string' ? profile.lastFlyerDate.slice(0, 10) : '',
     isPhoneVerified: false,
     isBankVerified: false,

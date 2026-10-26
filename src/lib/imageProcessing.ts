@@ -11,7 +11,7 @@
  * 3. Boosts natural vibrance (makes fabrics, food, auto parts & gadgets pop without burning skin tones)
  * 4. Applies unsharp masking & clarity enhancement (crisp product outlines & textures)
  * 5. Suppresses high-ISO low-light camera grain & sensor noise
- * 6. Performs multi-threshold saliency background removal with soft feathering
+ * 6. Preserves the photo background by default; optional cutout is available on request
  */
 
 export interface EnhancementStats {
@@ -558,11 +558,10 @@ export async function removeBackground(
 
 /**
  * Master Upload Pipeline
- * Executed AUTOMATICALLY whenever any picture is uploaded or snapped.
+ * Executed automatically whenever any picture is uploaded or snapped.
  * 1. Downscales for budget mobile bandwidth
  * 2. Enhances naturally (fixes bad lighting, yellow cast, blur, washed out tones)
- * 3. Removes background (isolates product cutout)
- * 4. Yields both cutout and enhanced original for instant toggling
+ * 3. Keeps the enhanced image intact; background removal stays opt-in.
  */
 export async function autoProcessProductPhoto(
   file: File | Blob | string,
@@ -576,22 +575,14 @@ export async function autoProcessProductPhoto(
   if (onProgress) onProgress('Auto-refining exposure, colors & sharpness...', 45);
   const enhanced = await enhanceBadCameraPhoto(downscaled);
 
-  // Step 3: Clean Background Removal
-  if (onProgress) onProgress('Isolating product & removing background...', 75);
-  const cutoutResult = await removeBackground(enhanced.dataUrl, (p) => {
-    if (onProgress) onProgress('Cleaning background edges...', 75 + Math.round(p * 0.2));
-  });
-
-  const finalCutout = cutoutResult.success ? cutoutResult.dataUrl : enhanced.dataUrl;
-
   if (onProgress) onProgress('Ready sharp sharp!', 100);
 
   return {
     originalRaw: downscaled,
     enhancedPhoto: enhanced.dataUrl,
-    cleanCutout: finalCutout,
-    activeImage: finalCutout,
-    hasRemovedBg: cutoutResult.success,
+    cleanCutout: '',
+    activeImage: enhanced.dataUrl,
+    hasRemovedBg: false,
     stats: enhanced.stats,
   };
 }

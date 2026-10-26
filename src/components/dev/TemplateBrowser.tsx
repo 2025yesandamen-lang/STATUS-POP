@@ -2,17 +2,21 @@ import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { TEMPLATES } from '../../lib/templates.ts';
 import { FlyerCanvas } from '../editor/FlyerCanvas.tsx';
-import { FlyerTemplate, UserFlyerData } from '../../types/index.ts';
+import { FlyerTemplate, UserFlyerData, UserPlan } from '../../types/index.ts';
 import { Button } from '../ui/Button.tsx';
 
 export interface TemplateBrowserProps {
   onBack: () => void;
   onSelectTemplate: (template: FlyerTemplate) => void;
+  userPlan: UserPlan;
+  onOpenUpgrade: () => void;
 }
 
 export const TemplateBrowser: React.FC<TemplateBrowserProps> = ({
   onBack,
   onSelectTemplate,
+  userPlan,
+  onOpenUpgrade,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -72,10 +76,10 @@ export const TemplateBrowser: React.FC<TemplateBrowserProps> = ({
             </button>
             <div>
               <h1 className="text-xl font-black text-gray-900 dark:text-white">
-                Dev Template Gallery ({TEMPLATES.length} Templates)
+                Template Gallery ({TEMPLATES.length} Designs)
               </h1>
               <p className="text-xs text-gray-500">
-                Inspect every flyer template rendered with standard 1080x1920 layout rules
+                Free sector designs and premium templates, rendered at 1080 × 1920
               </p>
             </div>
           </div>
@@ -128,12 +132,18 @@ export const TemplateBrowser: React.FC<TemplateBrowserProps> = ({
 
               <Button
                 type="button"
-                variant="primary"
+                variant={tmpl.isProOnly && userPlan === 'free' ? 'outline' : 'primary'}
                 size="sm"
                 fullWidth
-                onClick={() => onSelectTemplate(tmpl)}
+                onClick={() => {
+                  if (tmpl.isProOnly && userPlan === 'free') {
+                    onOpenUpgrade();
+                    return;
+                  }
+                  onSelectTemplate(tmpl);
+                }}
               >
-                Use This Template
+                {tmpl.isProOnly && userPlan === 'free' ? 'Unlock with a paid plan' : 'Use This Template'}
               </Button>
             </div>
           ))}

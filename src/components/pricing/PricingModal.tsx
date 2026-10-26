@@ -128,10 +128,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                 <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> 100% Watermark removed
               </li>
               <li className="flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> 1 Real Special Event Design per celebration (Independence, New Week, Valentine)
-              </li>
-              <li className="flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> All 15+ sector templates unlocked
+                <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Current sector designs plus premium studio templates
               </li>
             </ul>
           </div>
@@ -174,7 +171,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                 <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> No watermark on any export
               </li>
               <li className="flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Festive packs (Detty December, Eid, Easter)
+                <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Premium Studio designs and festive packs
               </li>
               <li className="flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-[#0B6B3A]" /> Priority AI caption generator

@@ -26,6 +26,7 @@ export interface ExportBarProps {
   referralCode: string;
   isAuthenticated: boolean;
   onOpenUpgrade: () => void;
+  onRecordFlyer: () => boolean;
 }
 
 export const ExportBar: React.FC<ExportBarProps> = ({
@@ -35,6 +36,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
   referralCode,
   isAuthenticated,
   onOpenUpgrade,
+  onRecordFlyer,
 }) => {
   const { showToast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
@@ -94,6 +96,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
     setIsExporting(true);
     try {
       const dataUrl = await exportFlyerToDataUrl(template, userData, hasWatermark, referralCode);
+      if (!onRecordFlyer()) return;
       const link = document.createElement('a');
       const filename = `${
         userData.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'flyer'
@@ -104,11 +107,6 @@ export const ExportBar: React.FC<ExportBarProps> = ({
       await saveFlyerToAccount(dataUrl);
 
       triggerConfetti();
-      recordAnalyticsEvent('flyer_created', {
-        templateId: template.id,
-        plan: userPlan,
-        referralCode,
-      });
       showToast(
         'Flyer Downloaded!',
         'Saved in 1080p HD! Ready to post on WhatsApp Status.',
@@ -125,6 +123,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({
     setIsExporting(true);
     try {
       const dataUrl = await exportFlyerToDataUrl(template, userData, hasWatermark, referralCode);
+      if (!onRecordFlyer()) return;
       setExportedDataUrl(dataUrl);
 
       const captionText = generateSalesCaption();
@@ -211,14 +210,14 @@ export const ExportBar: React.FC<ExportBarProps> = ({
           <div className="flex items-center justify-between p-2.5 bg-[#FFF9EC] dark:bg-amber-950/30 rounded-xl border border-[#FFC93C]/40 text-xs text-[#111827] dark:text-amber-200">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#FF5A36] shrink-0" />
-              <span>Free plan has 150px QR referral strip.</span>
+              <span>Free trial flyers include a StatusPop referral strip.</span>
             </div>
             <button
               type="button"
               onClick={onOpenUpgrade}
               className="tap-target font-bold text-[#0B6B3A] dark:text-[#FFC93C] underline shrink-0 px-2"
             >
-              Remove for ₦300
+              See paid plans
             </button>
           </div>
         )}

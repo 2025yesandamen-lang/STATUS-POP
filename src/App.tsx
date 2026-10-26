@@ -217,6 +217,26 @@ function MainContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [isMiniProfileModalOpen, setIsMiniProfileModalOpen] = useState(false);
+  const activePlan: UserPlan =
+    vendor.plan === 'pro' ||
+    (vendor.plan === 'day_pass' &&
+      Boolean(vendor.planExpiresAt && Date.parse(vendor.planExpiresAt) > Date.now()))
+      ? vendor.plan
+      : 'free';
+
+  useEffect(() => {
+    if (vendor.plan !== 'day_pass' || !vendor.planExpiresAt) return;
+    const expiresAt = new Date(vendor.planExpiresAt).getTime();
+    const delay = expiresAt - Date.now();
+    if (delay <= 0) {
+      setVendor((current) => ({ ...current, plan: 'free', planExpiresAt: undefined }));
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setVendor((current) => ({ ...current, plan: 'free', planExpiresAt: undefined }));
+    }, delay);
+    return () => window.clearTimeout(timeout);
+  }, [vendor.plan, vendor.planExpiresAt]);
 
   useEffect(() => {
     if (!publicShopSlug) return;
@@ -422,7 +442,9 @@ function MainContent() {
   }, [showToast]);
 
   const selectedTemplate =
-    TEMPLATES.find((t) => t.id === flyerData.selectedTemplateId) || TEMPLATES[0];
+    TEMPLATES.find((t) => t.id === flyerData.selectedTemplateId && (!t.isProOnly || activePlan !== 'free')) ||
+    TEMPLATES.find((t) => !t.isProOnly) ||
+    TEMPLATES[0];
 
   // Transition from Home to Create flow
   const handleStartCreate = (sectorPresetKey?: string) => {
@@ -452,11 +474,11 @@ function MainContent() {
   const handleImageFile = async (file: File) => {
     try {
       setIsAutoProcessingPhoto(true);
-      setAutoProcessStep('1/3: Optimizing for low-data mobile speed...');
+      setAutoProcessStep('1/2: Optimizing for mobile speed...');
 
       showToast(
         '✨ Enhancing Photo...',
-        'Boosting bad camera exposure, white balance & removing background.',
+        'Improving lighting and color while keeping your original background.',
         'info'
       );
 
@@ -495,7 +517,7 @@ function MainContent() {
 
       showToast(
         '✨ Auto-Enhanced Sharp Sharp!',
-        'Bad camera fixed, colors brightened & background removed cleanly.',
+        'Lighting and colors improved. Your photo background was kept.',
         'success'
       );
     } catch (err) {
@@ -719,12 +741,12 @@ function MainContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* 15 Templates Link */}
+            {/* Template Gallery Link */}
             <button
               onClick={() => setCurrentView('dev_templates')}
               className="tap-target px-2.5 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors hidden sm:inline-flex items-center gap-1"
             >
-              <span>15 Templates 📐</span>
+              <span>{TEMPLATES.length} Templates 📐</span>
             </button>
 
             {/* Go Pro Button */}
@@ -842,7 +864,7 @@ function MainContent() {
         )
       ) : currentView === 'home' ? (
         <HomePage
-          userPlan={vendor.plan}
+          userPlan={activePlan}
           onStartCreate={(sectorKey) => handleStartCreate(sectorKey)}
           onOpenPricing={() => setIsPricingOpen(true)}
           onOpenTemplates={() => setCurrentView('dev_templates')}
@@ -856,14 +878,14 @@ function MainContent() {
         />
       ) : currentView === 'whatsapp_dp' ? (
         <WhatsAppDPGenerator
-          userPlan={vendor.plan}
+          userPlan={activePlan}
           vendor={vendor}
           onBack={() => setCurrentView('home')}
           onOpenPricing={() => setIsPricingOpen(true)}
         />
       ) : currentView === 'events' ? (
         <SpecialEventsPage
-          userPlan={vendor.plan}
+          userPlan={activePlan}
           vendor={vendor}
           onBack={() => setCurrentView('home')}
           onOpenPricing={() => setIsPricingOpen(true)}
@@ -894,7 +916,13 @@ function MainContent() {
       ) : currentView === 'dev_templates' ? (
         <TemplateBrowser
           onBack={() => setCurrentView('home')}
+          userPlan={activePlan}
+          onOpenUpgrade={() => setIsPricingOpen(true)}
           onSelectTemplate={(tmpl) => {
+            if (tmpl.isProOnly && activePlan === 'free') {
+              setIsPricingOpen(true);
+              return;
+            }
             setFlyerData((prev) => ({ ...prev, selectedTemplateId: tmpl.id }));
             setCurrentView('create');
             setCurrentStep(3);
@@ -903,13 +931,13 @@ function MainContent() {
       ) : (
         /* Create Flyer 3-Step Creation Studio */
         <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 lg:px-6 py-4 space-y-4 pb-24">
-          {/* Daily Usage Alert for Free Plan */}
-          {vendor.plan === 'free' && (
+          {/* One-time Free Trial Usage Alert */}
+          {activePlan === 'free' && (
             <div className="flex items-center justify-between p-3 bg-white dark:bg-[#1A202C] rounded-2xl border border-[#FFC93C]/50 shadow-xs text-xs">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-[#FF5A36] shrink-0" />
                 <span>
-                  Today: <strong>{vendor.flyersCreatedToday}/3</strong> free flyers used
+                  Free trial: <strong>{Math.min(vendor.flyersCreatedTotal, 5)}/5</strong> flyers used
                 </span>
               </div>
               <button
@@ -917,15 +945,15 @@ function MainContent() {
                 onClick={() => setIsPricingOpen(true)}
                 className="tap-target font-bold text-[#0B6B3A] dark:text-[#FFC93C] underline px-1"
               >
-                Go Unlimited (₦500)
+                Unlock paid plans
               </button>
             </div>
           )}
 
-          {/* Persistent Top-Aligned / Sticky Studio Grid */}
+          {/* Scrollable studio grid: editor controls stay above the preview on small screens. */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
-            {/* STICKY LIVE PREVIEW WINDOW (Pinned at top on mobile, sticky left column on desktop) */}
-            <div className="lg:col-span-5 xl:col-span-5 sticky top-14 sm:top-16 z-20">
+            {/* Live preview follows the controls on mobile and sits beside them on desktop. */}
+            <div className="order-2 lg:order-1 lg:col-span-5 xl:col-span-5">
               <div className="bg-white/95 dark:bg-[#1A202C]/95 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden transition-all">
                 {/* Preview Header Bar */}
                 <div className="px-3.5 py-2.5 bg-gray-50/90 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2">
@@ -1005,7 +1033,7 @@ function MainContent() {
                             ? flyerData.aspectRatio === '1:1' ? 0.18 : flyerData.aspectRatio === '4:5' ? 0.16 : 0.14
                             : flyerData.aspectRatio === '1:1' ? 0.24 : flyerData.aspectRatio === '4:5' ? 0.21 : 0.18
                         }
-                        showWatermark={vendor.plan === 'free'}
+                        showWatermark={activePlan === 'free'}
                         referralCode={vendor.referralCode}
                       />
                     </div>
@@ -1035,7 +1063,7 @@ function MainContent() {
             </div>
 
             {/* CONTROLS COLUMN (Scrollable on right or below) */}
-            <div className="lg:col-span-7 xl:col-span-7 space-y-4">
+            <div className="order-1 lg:order-2 lg:col-span-7 xl:col-span-7 space-y-4">
               {/* Stepper Navigation */}
               <Card padding="sm">
                 <Stepper
@@ -1121,10 +1149,10 @@ function MainContent() {
                     </div>
                     <div className="min-w-0 text-left">
                       <div className="text-xs font-black text-gray-900 dark:text-white truncate">
-                        {autoProcessStep || 'Auto-Refining & Isolating Product...'}
+                        {autoProcessStep || 'Enhancing your photo...'}
                       </div>
                       <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                        Lifting bad camera exposure, white balance & removing background.
+                        Improving lighting and color; your original background stays intact.
                       </p>
                     </div>
                   </div>
@@ -1634,33 +1662,38 @@ function MainContent() {
             </div>
           )}
 
-          {/* STEP 3: Style, 15 Templates, AI & Export */}
+          {/* STEP 3: Style, Templates, AI & Export */}
           {currentStep === 3 && (
             <div className="space-y-5 animate-in fade-in duration-200">
-              {/* Template Selector Slider (15 Templates) */}
+              {/* Template Selector Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                    Choose Template ({TEMPLATES.length} Sector Templates)
+                    Choose Template ({TEMPLATES.length} designs)
                   </label>
                   <button
                     onClick={() => setCurrentView('dev_templates')}
                     className="tap-target text-xs font-bold text-[#0B6B3A] dark:text-[#FFC93C] hover:underline"
                   >
-                    Browse All 15 →
+                    Browse All {TEMPLATES.length} →
                   </button>
                 </div>
 
                 <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
                   {TEMPLATES.map((tmpl) => {
-                    const isSelected = flyerData.selectedTemplateId === tmpl.id;
+                    const isLocked = Boolean(tmpl.isProOnly && activePlan === 'free');
+                    const isSelected = !isLocked && flyerData.selectedTemplateId === tmpl.id;
                     return (
                       <button
                         key={tmpl.id}
                         type="button"
-                        onClick={() =>
-                          setFlyerData((prev) => ({ ...prev, selectedTemplateId: tmpl.id }))
-                        }
+                        onClick={() => {
+                          if (isLocked) {
+                            setIsPricingOpen(true);
+                            return;
+                          }
+                          setFlyerData((prev) => ({ ...prev, selectedTemplateId: tmpl.id }));
+                        }}
                         className={`tap-target shrink-0 p-3 rounded-2xl border-2 text-left transition-all ${
                           isSelected
                             ? 'bg-white dark:bg-gray-800 border-[#0B6B3A] ring-2 ring-[#0B6B3A]/20 shadow-md scale-102'
@@ -1674,7 +1707,7 @@ function MainContent() {
                           />
                           <div>
                             <span className="font-bold text-xs text-gray-900 dark:text-white block">
-                              {tmpl.name}
+                              {tmpl.name}{isLocked ? ' · PRO' : ''}
                             </span>
                             <span className="text-[10px] text-gray-500">
                               {tmpl.photoSlots > 1 ? `${tmpl.photoSlots} Photos` : 'Hero Photo'}
@@ -1696,7 +1729,7 @@ function MainContent() {
                   businessName={flyerData.businessName}
                   category={flyerData.category}
                   currentHeadline={flyerData.headline}
-                  userPlan={vendor.plan}
+                  userPlan={activePlan}
                   referralCode={vendor.referralCode}
                   onSelectHeadline={(headline) =>
                     setFlyerData((prev) => ({ ...prev, headline }))
@@ -1708,10 +1741,26 @@ function MainContent() {
               <ExportBar
                 template={selectedTemplate}
                 userData={flyerData}
-                userPlan={vendor.plan}
+                userPlan={activePlan}
                 referralCode={vendor.referralCode}
                 isAuthenticated={isAuthenticated}
                 onOpenUpgrade={() => setIsPricingOpen(true)}
+                onRecordFlyer={() => {
+                  const result = recordFlyerCreated(activePlan);
+                  if (!result.canCreate) {
+                    showToast('Free trial complete', 'Create five flyers free, then choose a paid plan to continue.', 'info');
+                    setIsPricingOpen(true);
+                    return false;
+                  }
+                  if (activePlan === 'free') {
+                    setVendor((current) => ({
+                      ...current,
+                      flyersCreatedTotal: Math.min(5, current.flyersCreatedTotal + 1),
+                      flyersCreatedToday: current.flyersCreatedToday + 1,
+                    }));
+                  }
+                  return true;
+                }}
               />
 
               <div className="flex gap-3 pt-2">
@@ -1743,7 +1792,7 @@ function MainContent() {
       <Suspense fallback={null}><PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
-        currentPlan={vendor.plan}
+        currentPlan={activePlan}
         isAuthenticated={isAuthenticated}
         accountEmail={accountEmail}
         onRequireAccount={() => setIsAccountOpen(true)}
@@ -1780,10 +1829,10 @@ function MainContent() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-gray-900 dark:text-white">
-                    Auto-Enhancement Comparison
+                    Photo Processing Comparison
                   </h3>
                   <p className="text-[10px] text-gray-500">
-                    Transforming budget mobile camera snapshots into clean studio product shots
+                    Compare the enhanced photo with an optional background cutout
                   </p>
                 </div>
               </div>
@@ -1800,37 +1849,39 @@ function MainContent() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 text-center">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                  Original Raw Snapshot
+                  Enhanced Photo (Background Kept)
                 </span>
                 <div className="aspect-square rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-neutral-900 relative">
                   <img
                     src={flyerData.enhancedOriginalImage || flyerData.productImage || ''}
                     alt="Original"
-                    className="w-full h-full object-cover opacity-80 filter brightness-90"
+                    className="w-full h-full object-cover"
                   />
                   <span className="absolute bottom-1.5 left-1.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                    Bad Camera Raw
+                    Background Preserved
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-500">Dim lighting & messy background</p>
+                <p className="text-[10px] text-gray-500">Original background retained</p>
               </div>
 
               <div className="space-y-1.5 text-center">
                 <span className="text-[10px] font-bold text-[#0B6B3A] dark:text-[#FFC93C] uppercase tracking-wide">
-                  ✨ Auto-Enhanced Cutout
+                  {flyerData.cleanCutoutImage ? 'Optional Background Cutout' : 'Original Background'}
                 </span>
                 <div className="aspect-square rounded-2xl overflow-hidden border-2 border-[#0B6B3A] bg-emerald-950/20 relative shadow-md">
                   <img
                     src={flyerData.cleanCutoutImage || flyerData.productImage || ''}
-                    alt="Cutout"
+                    alt={flyerData.cleanCutoutImage ? 'Background removed cutout' : 'Photo with original background'}
                     className="w-full h-full object-contain p-2"
                   />
                   <span className="absolute bottom-1.5 right-1.5 bg-[#0B6B3A] text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                    Studio Clean
+                    {flyerData.cleanCutoutImage ? 'Cutout Applied' : 'Background Kept'}
                   </span>
                 </div>
                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                  Lighting boosted, colors popped & background isolated
+                  {flyerData.cleanCutoutImage
+                    ? 'Background removal was applied on request.'
+                    : 'Background stays intact unless you choose Clean Cutout.'}
                 </p>
               </div>
             </div>
