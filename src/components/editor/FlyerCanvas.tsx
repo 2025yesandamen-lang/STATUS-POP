@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { FlyerTemplate, UserFlyerData, ASPECT_RATIOS } from '../../types/index.ts';
 import { formatNaira, calculateDiscount } from '../../lib/format.ts';
-import { calculateFittedFontSize, drawImageInSlot } from '../../lib/render.ts';
+import { calculateFittedFontSize, drawImageInSlot, shouldRenderSingleProductDetail } from '../../lib/render.ts';
 import { ensureFontsLoaded } from '../../lib/imageProcessing.ts';
 import { drawSectorBackgroundPattern, drawSectorDecorations } from '../../lib/sectorGraphics.ts';
 
@@ -245,6 +245,8 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
             ctx.restore();
           }
         } else if (layer.type === 'text') {
+          if (!shouldRenderSingleProductDetail(template, userData, layer.textKey)) continue;
+
           let content = '';
           if (layer.textKey === 'businessName') content = userData.businessName.toUpperCase();
           else if (layer.textKey === 'headline') content = userData.headline;

@@ -103,6 +103,16 @@ export function drawImageInSlot(
   ctx.restore();
 }
 
+export function shouldRenderSingleProductDetail(
+  template: FlyerTemplate,
+  userData: UserFlyerData,
+  textKey: string | undefined
+): boolean {
+  const isSeparateMultiProductLayout =
+    template.photoSlots > 1 && userData.multiProductMode === 'separate_products';
+  return !isSeparateMultiProductLayout || (textKey !== 'productName' && textKey !== 'price');
+}
+
 /**
  * Generate a scannable QR Code as Data URL
  */
@@ -336,6 +346,8 @@ export async function exportFlyerToDataUrl(
         ctx.restore();
       }
     } else if (layer.type === 'text') {
+      if (!shouldRenderSingleProductDetail(template, userData, layer.textKey)) continue;
+
       let content = '';
       if (layer.textKey === 'businessName') content = userData.businessName.toUpperCase();
       else if (layer.textKey === 'headline') content = userData.headline;
