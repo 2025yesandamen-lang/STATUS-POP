@@ -287,8 +287,8 @@ export const HomePage: React.FC<HomePageProps> = ({
           </Card>
         </div>
 
-        {/* Simple, Honest Naija Pricing Section */}
-        <div className="pt-8">
+        {userPlan === 'free' && <div className="pt-8">
+          {/* Simple, Honest Naija Pricing Section */}
           <Card padding="lg" className="bg-white dark:bg-[#1A202C] shadow-md border border-gray-200 dark:border-gray-800 text-center space-y-6">
             <div>
               <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
@@ -433,7 +433,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
             </div>
           </Card>
-        </div>
+        </div>}
       </section>
 
       {/* Dark Footer Matching Reference Image */}
