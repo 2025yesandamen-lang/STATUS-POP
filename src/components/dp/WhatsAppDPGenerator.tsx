@@ -45,7 +45,6 @@ interface DPSectorPreset {
   icon: string;
   tagline: string;
   themeColor: string;
-  badgeText: string;
   defaultServices: string[];
   samplePhoto: string;
 }
@@ -57,7 +56,6 @@ const DP_SECTORS: DPSectorPreset[] = [
     icon: '✂️',
     tagline: 'BESPOKE SENATOR & NATIVE WEARS',
     themeColor: '#176B5B',
-    badgeText: 'CERTIFIED MASTER TAILOR',
     defaultServices: ['Senator Styles', 'Agbada & Kaftan', 'Corporate Suits', '48hr Express Delivery'],
     samplePhoto: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&auto=format&fit=crop&q=80',
   },
@@ -67,7 +65,6 @@ const DP_SECTORS: DPSectorPreset[] = [
     icon: '💈',
     tagline: 'VIP GROOMING & SKIN FADES',
     themeColor: '#9A653C',
-    badgeText: 'VIP EXECUTIVE LOUNGE',
     defaultServices: ['Skin Fade & Beard Dye', 'Facial & Black Mask', 'Home VIP Service', 'Dreadlocks & Braids'],
     samplePhoto: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=80',
   },
@@ -77,7 +74,6 @@ const DP_SECTORS: DPSectorPreset[] = [
     icon: '🔧',
     tagline: 'TOKUNBO ENGINES & DIAGNOSTICS',
     themeColor: '#A4493D',
-    badgeText: 'TESTED & COMPUTER SCANNED',
     defaultServices: ['Computer OBD Scanning', 'Gearbox & Engine Fix', 'Tokunbo Spare Parts', '24/7 Highway Towing'],
     samplePhoto: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=800&auto=format&fit=crop&q=80',
   },
@@ -87,7 +83,6 @@ const DP_SECTORS: DPSectorPreset[] = [
     icon: '⚡',
     tagline: 'COOLING, INVERTER & WIRING',
     themeColor: '#456B8A',
-    badgeText: 'RAPID 1HR RESPONSE',
     defaultServices: ['AC Servicing & Gas', 'Solar & Inverter Setup', 'Building Wiring', 'Tested Safety Standards'],
     samplePhoto: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80',
   },
@@ -97,7 +92,6 @@ const DP_SECTORS: DPSectorPreset[] = [
     icon: '🍲',
     tagline: 'PARTY JOLLOF & FRESH SOUPS',
     themeColor: '#B85F3C',
-    badgeText: 'CLEAN TASTE OF NAIJA',
     defaultServices: ['Firewood Party Jollof', 'Bowls of Native Soups', 'Peppered Meat & Fish', 'Outdoor Event Catering'],
     samplePhoto: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
   },
@@ -107,7 +101,6 @@ const DP_SECTORS: DPSectorPreset[] = [
     icon: '📱',
     tagline: 'UK USED PHONES & ACCESSORIES',
     themeColor: '#65558A',
-    badgeText: 'ORIGINAL WITH WARRANTY',
     defaultServices: ['Clean UK Used Phones', 'Screen & Battery Swap', 'MacBook & Laptops', 'Nationwide Waybill'],
     samplePhoto: 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=800&auto=format&fit=crop&q=80',
   },
@@ -132,7 +125,6 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
   const [dpData, setDpData] = useState({
     businessName: vendor.businessName || 'SEYI NIGERIAN BESPOKE TAILORS',
     tagline: currentSector.tagline,
-    badgeText: currentSector.badgeText,
     services: currentSector.defaultServices,
     phone: vendor.phone || '08023456789',
     address: vendor.address || 'Yaba Tejuosho Market, Lagos',
@@ -156,7 +148,6 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
       setDpData((prev) => ({
         ...prev,
         tagline: sec.tagline,
-        badgeText: sec.badgeText,
         services: sec.defaultServices,
         themeColor: sec.themeColor,
         avatarImage: prev.avatarImage === currentSector.samplePhoto ? sec.samplePhoto : prev.avatarImage,
@@ -304,44 +295,6 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
             ctx.fill();
           }
         }
-        ctx.restore();
-
-        // Verified Badge on avatar shoulder
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = '#25D366';
-        ctx.beginPath();
-        ctx.arc(photoCx + 160, photoCy + 160, 42, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 5;
-        ctx.stroke();
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 42px "Inter", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('✓', photoCx + 160, photoCy + 160);
-        ctx.restore();
-
-        // 4. Sector / Certification Ribbon
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = dpData.themeColor;
-        ctx.beginPath();
-        ctx.roundRect(photoCx - 220, photoCy + (isEditorialSquare ? 215 : 175), 440, 52, 18);
-        ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 22px "Montserrat", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(dpData.badgeText.toUpperCase(), photoCx, photoCy + (isEditorialSquare ? 241 : 201));
         ctx.restore();
 
         // 5. Business Name (Large & Centered)
@@ -582,44 +535,6 @@ export const WhatsAppDPGenerator: React.FC<WhatsAppDPGeneratorProps> = ({
           ctx.fill();
         }
       }
-      ctx.restore();
-
-      // Verified Badge
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.4)';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = '#25D366';
-      ctx.beginPath();
-      ctx.arc(photoCx + 160, photoCy + 160, 42, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 5;
-      ctx.stroke();
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 42px "Inter", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('✓', photoCx + 160, photoCy + 160);
-      ctx.restore();
-
-      // Ribbon
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.3)';
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = dpData.themeColor;
-      ctx.beginPath();
-      ctx.roundRect(photoCx - 220, photoCy + (isEditorialSquare ? 215 : 175), 440, 52, 18);
-      ctx.fill();
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 22px "Montserrat", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(dpData.badgeText.toUpperCase(), photoCx, photoCy + (isEditorialSquare ? 241 : 201));
       ctx.restore();
 
       // Business Name

@@ -299,15 +299,31 @@ function MainContent() {
         const reference = params.get('payment_reference');
         if (reference) {
           let paymentStatus = 'pending';
+          let verifiedEntitlement: { plan?: UserPlan; expiresAt?: string | null } | null = null;
           for (let attempt = 0; attempt < 8; attempt += 1) {
             const response = await fetch(`/api/payments/verify/${encodeURIComponent(reference)}`, { credentials: 'same-origin' });
             if (!response.ok) throw new Error('Payment is still being verified.');
-            const verification = await response.json();
-            paymentStatus = verification.paymentStatus;
+            const verification = await response.json() as {
+              paymentStatus?: 'pending' | 'success' | 'failed';
+              plan?: UserPlan;
+              expiresAt?: string | null;
+            };
+            paymentStatus = verification.paymentStatus || 'pending';
+            verifiedEntitlement = verification;
             if (paymentStatus !== 'pending') break;
             await new Promise((resolve) => window.setTimeout(resolve, 2500));
           }
           if (paymentStatus === 'success') {
+            const activatedPlan = verifiedEntitlement?.plan;
+            const expiresAt = verifiedEntitlement?.expiresAt;
+            if (activatedPlan === 'pro' || activatedPlan === 'day_pass') {
+              setVendor((current) => ({
+                ...current,
+                plan: activatedPlan,
+                planExpiresAt: expiresAt || undefined,
+              }));
+            }
+            setIsPricingOpen(false);
             showToast('Payment verified', 'Your plan is active on your account.', 'success');
           } else if (paymentStatus === 'failed') {
             showToast('Payment not completed', 'No paid plan was activated.', 'error');
@@ -751,13 +767,15 @@ function MainContent() {
             </button>
 
             {/* Go Pro Button */}
-            <button
-              onClick={() => setIsPricingOpen(true)}
-              className="tap-target px-3 py-1.5 text-xs font-bold rounded-xl bg-[#FFC93C]/25 text-[#0B6B3A] dark:text-[#FFC93C] border border-[#FFC93C]/60 flex items-center gap-1 hover:bg-[#FFC93C]/40 transition-colors shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#FF5A36]" />
-              <span>Go Pro</span>
-            </button>
+            {activePlan === 'free' && (
+              <button
+                onClick={() => setIsPricingOpen(true)}
+                className="tap-target px-3 py-1.5 text-xs font-bold rounded-xl bg-[#FFC93C]/25 text-[#0B6B3A] dark:text-[#FFC93C] border border-[#FFC93C]/60 flex items-center gap-1 hover:bg-[#FFC93C]/40 transition-colors shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#FF5A36]" />
+                <span>Go Pro</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -1801,14 +1819,16 @@ function MainContent() {
       </Suspense>
 
       {/* Paystack Upgrade BottomSheet */}
-      <Suspense fallback={null}><PricingModal
-        isOpen={isPricingOpen}
-        onClose={() => setIsPricingOpen(false)}
-        currentPlan={activePlan}
-        isAuthenticated={isAuthenticated}
-        accountEmail={accountEmail}
-        onRequireAccount={() => setIsAccountOpen(true)}
-      /></Suspense>
+      {activePlan === 'free' && (
+        <Suspense fallback={null}><PricingModal
+          isOpen={isPricingOpen}
+          onClose={() => setIsPricingOpen(false)}
+          currentPlan={activePlan}
+          isAuthenticated={isAuthenticated}
+          accountEmail={accountEmail}
+          onRequireAccount={() => setIsAccountOpen(true)}
+        /></Suspense>
+      )}
 
       <AccountAccessModal
         isOpen={isAccountOpen}
