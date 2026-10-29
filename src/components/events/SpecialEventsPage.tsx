@@ -109,6 +109,10 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
     website: 'status-pop.vercel.app',
     heroImage: activeDesign.heroGraphic,
     includePhoto: true,
+    discountText: '50% OFF',
+    saleDates: 'NOVEMBER 24-26',
+    promoLabel: 'SUPER OFFER',
+    callToAction: 'SHOP NOW',
   });
 
   // Multiple Free AI Generation State
@@ -135,6 +139,19 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
       }));
     }
   }, [selectedEventType, selectedVariant, includePhoto, userUploadedPhoto]);
+
+  useEffect(() => {
+    if (activeDesign.eventType === 'black_friday') {
+      setCustomData((prev) => ({
+        ...prev,
+        taglineSlogan: 'BLACK FRIDAY',
+        discountText: '50% OFF',
+        saleDates: 'NOVEMBER 24-26',
+        promoLabel: activeDesign.designVariant === 2 ? 'LIMITED-TIME OFFER' : 'SUPER OFFER',
+        callToAction: 'SHOP NOW',
+      }));
+    }
+  }, [selectedEventType, selectedVariant]);
 
   const hasWatermark: boolean = userPlan === 'free';
 
@@ -345,7 +362,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
       a.click();
       document.body.removeChild(a);
 
-      showToast('Flyer Downloaded!', 'Crisp 1080x1080 HD image ready for WhatsApp.', 'success');
+      showToast('Flyer Downloaded!', 'Crisp HD image ready for WhatsApp.', 'success');
     } catch (err) {
       console.error(err);
       showToast('Download Error', 'Could not export flyer. Please try again.', 'error');
@@ -395,6 +412,8 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
         return { label: 'Custom Touch Studio', icon: '🎨', desc: 'Direct touch drag stickers & shapes' };
       case 'professional_editorial':
         return { label: 'Professional Editorial', icon: '▰', desc: 'Refined business-ready layout' };
+      case 'black_friday':
+        return { label: 'Black Friday', icon: '🏷️', desc: 'Bold sale panels and product photo' };
       default:
         return { label: 'Classic Design', icon: '✨', desc: 'Standard holiday flyer' };
     }
@@ -450,7 +469,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
           <div className="flex items-center justify-between text-xs font-bold text-gray-700 dark:text-gray-300">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-              <span>Live 1:1 Flyer Preview</span>
+              <span>Live Flyer Preview</span>
             </span>
             {selectedVariant === 5 && (
               <span className="text-[10px] font-extrabold text-[#0B6B3A] dark:text-green-400 bg-green-100 dark:bg-green-950/60 px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -467,8 +486,8 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            className="relative aspect-square w-full max-w-[420px] mx-auto rounded-2xl overflow-hidden bg-gray-950 shadow-inner flex items-center justify-center select-none touch-none cursor-grab active:cursor-grabbing"
-            style={{ touchAction: 'none' }}
+            className="relative w-full max-w-[420px] mx-auto rounded-2xl overflow-hidden bg-gray-950 shadow-inner flex items-center justify-center select-none touch-none cursor-grab active:cursor-grabbing"
+            style={{ aspectRatio: String(activeDesign.aspectRatio || 1), touchAction: 'none' }}
           >
             {previewDataUrl ? (
               <img
@@ -602,7 +621,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
             { id: 'stickers', label: '2. Touch Stickers', icon: '🎨' },
             { id: 'text', label: '3. Text & AI', icon: '✍️' },
             { id: 'photo', label: '4. Photo & Info', icon: '📸' },
-          ].map((tab) => (
+          ].filter((tab) => selectedEventType !== 'black_friday' || tab.id !== 'stickers').map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -633,6 +652,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                   onChange={(e) => {
                     setSelectedEventType(e.target.value as SpecialEventType);
                     setSelectedVariant(1);
+                    setActiveTab('format');
                   }}
                   className="tap-target w-full h-11 pl-3.5 pr-10 text-xs sm:text-sm font-bold rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white border-2 border-[#0B6B3A] outline-none cursor-pointer appearance-none"
                 >
@@ -653,7 +673,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
                 Choose a celebration design:
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              <div className={`grid ${selectedEventType === 'black_friday' ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'} gap-2`}>
                 {currentEventDesigns.map((design) => {
                   const isSelected = selectedVariant === design.designVariant;
                   const isLocked = Boolean(design.isProExclusive && userPlan === 'free');
@@ -675,6 +695,13 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                           : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
                       }`}
                     >
+                      {design.referenceImage && (
+                        <img
+                          src={design.referenceImage}
+                          alt={`Template ${design.designVariant}`}
+                          className="mb-2 h-24 w-full rounded-md bg-gray-100 object-contain"
+                        />
+                      )}
                       <div>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-xs font-black">
@@ -695,8 +722,14 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
               </div>
             </div>
 
+            {activeDesign.referenceImage && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                Choose a layout, then edit its text and offer details. Add your own campaign photo in the Photo tab.
+              </p>
+            )}
+
             {/* Festive Background Swatches */}
-            <div>
+            {!activeDesign.referenceImage && <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
                 Festive Background:
               </label>
@@ -724,7 +757,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
           </Card>
         )}
 
@@ -894,6 +927,33 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
               )}
             </div>
 
+            {selectedEventType === 'black_friday' && (
+              <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                <p className="text-xs font-extrabold text-amber-900 dark:text-amber-200">
+                  Edit your Black Friday artwork
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { key: 'taglineSlogan', label: 'Main headline' },
+                    { key: 'promoLabel', label: 'Offer label' },
+                    { key: 'discountText', label: 'Discount' },
+                    { key: 'saleDates', label: 'Sale dates' },
+                    { key: 'callToAction', label: 'Call to action' },
+                  ] as const).map((field) => (
+                    <label key={field.key} className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                      {field.label}
+                      <input
+                        type="text"
+                        value={customData[field.key]}
+                        onChange={(e) => setCustomData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-semibold dark:border-gray-700 dark:bg-gray-800"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Business Name */}
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
@@ -911,7 +971,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
             {/* Celebration Headline */}
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                Headline Title on Flyer
+                {selectedEventType === 'black_friday' ? 'Supporting headline' : 'Headline Title on Flyer'}
               </label>
               <input
                 type="text"
@@ -925,7 +985,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
             {/* Celebration Message / Quote */}
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                Celebration Prayer or Quote
+                {selectedEventType === 'black_friday' ? 'Offer details' : 'Celebration Prayer or Quote'}
               </label>
               <textarea
                 rows={2}
@@ -936,6 +996,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
             </div>
 
             {/* 4 Services */}
+            {selectedEventType !== 'black_friday' && (
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                 4 Services / Highlights
@@ -957,6 +1018,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                 ))}
               </div>
             </div>
+            )}
           </Card>
         )}
 
@@ -967,10 +1029,12 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
               <div>
                 <h3 className="font-extrabold text-xs text-gray-900 dark:text-white">
-                  Include Photo in Frame?
+                  {selectedEventType === 'black_friday' ? 'Include Campaign Photo?' : 'Include Photo in Frame?'}
                 </h3>
                 <p className="text-[10px] text-gray-500">
-                  {includePhoto ? 'Your photo is framed in the layout.' : 'Pure festive artwork & vectors.'}
+                  {selectedEventType === 'black_friday'
+                    ? includePhoto ? 'Upload a photo to replace the layout photo area.' : 'Use the editable design without a photo.'
+                    : includePhoto ? 'Your photo is framed in the layout.' : 'Pure festive artwork & vectors.'}
                 </p>
               </div>
 
@@ -1039,7 +1103,7 @@ export const SpecialEventsPage: React.FC<SpecialEventsPageProps> = ({
                     onClick={() => setUserUploadedPhoto(null)}
                     className="tap-target text-xs text-red-600 font-bold px-2 py-1"
                   >
-                    Reset Preset
+                    Remove Photo
                   </button>
                 )}
               </div>

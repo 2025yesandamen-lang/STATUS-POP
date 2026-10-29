@@ -43,7 +43,8 @@ export type SpecialEventType =
   | 'eid_mubarak'
   | 'easter_celebration'
   | 'customer_appreciation'
-  | 'new_year_launch';
+  | 'new_year_launch'
+  | 'black_friday';
 
 export type EventLayoutFormat =
   | 'circular_portal' // Overlapping circles & floating seasonal elements (like Christmas / Valentine couple)
@@ -51,7 +52,8 @@ export type EventLayoutFormat =
   | 'card_window'     // Elegant rounded arch/window with calendar tag & side photo
   | 'luxury_emblem'   // Pure emblem, glowing festive typography & seasonal icon (gorgeous with or without photo)
   | 'custom_studio'   // Interactive drag & drop custom studio with user-picked icons, containers, text & backgrounds
-  | 'professional_editorial';
+  | 'professional_editorial'
+  | 'black_friday';
 
 export type CanvasElementType = 'text' | 'sticker' | 'container' | 'badge';
 
@@ -96,6 +98,8 @@ export interface SpecialEventDesign {
   designVariant: 1 | 2 | 3 | 4 | 5 | 6;
   layoutFormat: EventLayoutFormat;
   isProExclusive?: boolean;
+  referenceImage?: string;
+  aspectRatio?: number;
   defaultServices: string[];
 }
 

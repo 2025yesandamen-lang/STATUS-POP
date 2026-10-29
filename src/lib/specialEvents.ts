@@ -101,6 +101,15 @@ export const EVENT_CATEGORIES: EventCategoryMeta[] = [
     iconName: 'smile',
     defaultServices: ['Exclusive Cashbacks', 'Free Gifts on Order', 'VIP WhatsApp Support', 'Special Clearance'],
   },
+  {
+    type: 'black_friday',
+    title: 'Black Friday Sales & Deals',
+    badge: 'BLACK FRIDAY SALE',
+    dateStr: 'November Sales',
+    description: 'Bold black-and-orange promotional flyers for Black Friday offers, product launches, and limited-time deals.',
+    iconName: 'tag',
+    defaultServices: ['Exclusive Offers', 'Limited-Time Deals', 'New Arrivals', 'Shop Today'],
+  },
 ];
 
 // Standard celebration designs use four curated layouts plus the custom studio.
@@ -874,11 +883,64 @@ const BASE_SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
     isProExclusive: false,
     defaultServices: ['5-Star Stickers', 'Cashback Badges', 'Gift Vouchers', 'Custom Frames'],
   },
+
+  // --- BLACK FRIDAY ---
+  {
+    id: 'black-friday-01',
+    eventType: 'black_friday',
+    title: 'Black Friday Shopper Sale',
+    dateOrTheme: 'BLACK FRIDAY SALE',
+    tagline: 'BLACK FRIDAY',
+    defaultMessage: 'Discover special offers from our business. Contact us today to shop.',
+    accentColor: '#111111',
+    secondaryColor: '#FBBF24',
+    heroGraphic: '',
+    designVariant: 1,
+    layoutFormat: 'black_friday',
+    isProExclusive: false,
+    referenceImage: '/assets/black-friday-template-1.jpg',
+    aspectRatio: 392 / 510,
+    defaultServices: ['Exclusive Offers', 'Limited-Time Deals', 'New Arrivals', 'Shop Today'],
+  },
+  {
+    id: 'black-friday-02',
+    eventType: 'black_friday',
+    title: 'Black Friday Spotlight',
+    dateOrTheme: 'LIMITED-TIME SALE',
+    tagline: 'BLACK FRIDAY',
+    defaultMessage: 'Explore our latest offers and get in touch to place your order.',
+    accentColor: '#111111',
+    secondaryColor: '#FBBF24',
+    heroGraphic: '',
+    designVariant: 2,
+    layoutFormat: 'black_friday',
+    isProExclusive: false,
+    referenceImage: '/assets/black-friday-template-2.jpg',
+    aspectRatio: 612 / 500,
+    defaultServices: ['Special Offers', 'New Arrivals', 'While Stocks Last', 'Order Today'],
+  },
+  {
+    id: 'black-friday-03',
+    eventType: 'black_friday',
+    title: 'Black Friday Mega Deals',
+    dateOrTheme: 'MEGA DEALS',
+    tagline: 'BLACK FRIDAY',
+    defaultMessage: 'Shop our Black Friday collection and message us for available deals.',
+    accentColor: '#111111',
+    secondaryColor: '#FBBF24',
+    heroGraphic: '',
+    designVariant: 3,
+    layoutFormat: 'black_friday',
+    isProExclusive: false,
+    referenceImage: '/assets/black-friday-template-3.jpg',
+    aspectRatio: 465 / 626,
+    defaultServices: ['Featured Deals', 'Limited-Time Offers', 'Fresh Stock', 'Shop Now'],
+  },
 ];
 
 export const SPECIAL_EVENT_DESIGNS: SpecialEventDesign[] = [
   ...BASE_SPECIAL_EVENT_DESIGNS,
-  ...EVENT_CATEGORIES.map((category): SpecialEventDesign => ({
+  ...EVENT_CATEGORIES.filter((category) => category.type !== 'black_friday').map((category): SpecialEventDesign => ({
     id: `${category.type}-professional`,
     eventType: category.type,
     title: 'Professional Editorial',

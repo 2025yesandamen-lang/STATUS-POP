@@ -15,6 +15,10 @@ export interface EventFlyerCustomData {
   includePhoto?: boolean; // Toggle for photo vs pure graphic/icon artwork
   customElements?: CustomCanvasElement[];
   customBackground?: string;
+  discountText: string;
+  saleDates: string;
+  promoLabel: string;
+  callToAction: string;
 }
 
 // Utility: wrap text cleanly within a maxWidth box without overflowing
@@ -87,6 +91,212 @@ function drawFittedText(
   }
   ctx.fillText(text, x, y);
   ctx.restore();
+}
+
+function drawBlackFridayPhoto(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement | null,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  showPhoto: boolean
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.clip();
+  if (showPhoto && photo) {
+    const scale = Math.max(width / photo.naturalWidth, height / photo.naturalHeight);
+    const sourceWidth = width / scale;
+    const sourceHeight = height / scale;
+    ctx.drawImage(
+      photo,
+      (photo.naturalWidth - sourceWidth) / 2,
+      (photo.naturalHeight - sourceHeight) / 2,
+      sourceWidth,
+      sourceHeight,
+      x,
+      y,
+      width,
+      height
+    );
+  } else {
+    const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+    gradient.addColorStop(0, '#FBBF24');
+    gradient.addColorStop(1, '#F97316');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = '#111827';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 28px "Montserrat", sans-serif';
+    ctx.fillText('YOUR CAMPAIGN PHOTO', x + width / 2, y + height / 2, width - 32);
+  }
+  ctx.restore();
+}
+
+function renderBlackFridayTemplate(
+  ctx: CanvasRenderingContext2D,
+  design: SpecialEventDesign,
+  data: EventFlyerCustomData,
+  photo: HTMLImageElement | null,
+  showPhoto: boolean,
+  width: number,
+  height: number
+) {
+  const variant = design.designVariant;
+  const business = data.businessName.toUpperCase();
+  const heading = (data.taglineSlogan || 'BLACK FRIDAY').toUpperCase();
+  const promo = (data.promoLabel || 'SPECIAL OFFER').toUpperCase();
+  const discount = (data.discountText || '50% OFF').toUpperCase();
+  const dates = (data.saleDates || '').toUpperCase();
+  const title = (data.headlineTitle || 'SHOP OUR BLACK FRIDAY DEALS').toUpperCase();
+
+  if (variant === 1) {
+    const background = ctx.createLinearGradient(0, 0, width, height);
+    background.addColorStop(0, '#FFCB24');
+    background.addColorStop(0.55, '#FF8A00');
+    background.addColorStop(1, '#F45B16');
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = 'rgba(255, 242, 170, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(0, 185); ctx.lineTo(640, 185); ctx.lineTo(0, 780); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(width, 420); ctx.lineTo(width, 1050); ctx.lineTo(650, 1050); ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = '#111111';
+    drawFittedText(ctx, business, 58, 68, width - 116, 35, 18, '"Montserrat", sans-serif', '900');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 24px "Montserrat", sans-serif';
+    ctx.fillText(dates || 'LIMITED-TIME SALE', 58, 128, width - 116);
+
+    ctx.save();
+    ctx.translate(540, 335);
+    ctx.rotate(-0.09);
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(-440, -112, 880, 128);
+    ctx.fillStyle = '#FBBF24';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    drawFittedText(ctx, heading, 0, -48, 820, 98, 54, '"Anton", sans-serif', '900', 'center');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(-405, 20, 810, 112);
+    ctx.fillStyle = '#111111';
+    drawFittedText(ctx, promo, 0, 76, 750, 58, 32, '"Anton", sans-serif', '900', 'center');
+    ctx.restore();
+
+    drawBlackFridayPhoto(ctx, photo, 40, 545, 430, 660, 28, showPhoto);
+
+    ctx.fillStyle = '#111111';
+    ctx.beginPath();
+    ctx.roundRect(520, 610, 490, 260, 28);
+    ctx.fill();
+    ctx.fillStyle = '#FBBF24';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    drawFittedText(ctx, discount, 765, 730, 430, 174, 88, '"Anton", sans-serif', '900', 'center');
+    ctx.fillStyle = '#FFFFFF';
+    drawFittedText(ctx, title, 540, 920, 450, 35, 20, '"Montserrat", sans-serif', '900', 'center');
+    ctx.font = 'bold 21px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    drawWrappedText(ctx, data.messageQuote, 765, 965, 430, 29, 3, 'center');
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 21px "Montserrat", sans-serif';
+    ctx.fillText(`${data.callToAction || 'SHOP NOW'}  •  ${data.phone}`, 765, 1085, 455);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 16px "Inter", sans-serif';
+    ctx.fillText(data.website || '', 765, 1120, 450);
+  } else if (variant === 2) {
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#FBBF24';
+    ctx.beginPath();
+    ctx.moveTo(590, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height); ctx.lineTo(590, height); ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = '#FBBF24';
+    drawFittedText(ctx, business, 48, 70, 500, 33, 18, '"Montserrat", sans-serif', '900');
+    ctx.fillStyle = '#FFFFFF';
+    drawFittedText(ctx, heading, 48, 190, 500, 76, 62, '"Anton", sans-serif', '900');
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'bold 25px "Montserrat", sans-serif';
+    ctx.fillText(promo, 54, 242, 485);
+
+    ctx.strokeStyle = '#FBBF24';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.roundRect(48, 300, 490, 260, 18);
+    ctx.stroke();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 24px "Montserrat", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('DISCOUNT', 75, 348);
+    ctx.fillStyle = '#FBBF24';
+    drawFittedText(ctx, discount, 75, 455, 430, 116, 72, '"Anton", sans-serif', '900');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 20px "Inter", sans-serif';
+    ctx.fillText(dates || 'LIMITED-TIME OFFER', 58, 610, 470);
+    ctx.font = '500 18px "Inter", sans-serif';
+    drawWrappedText(ctx, title, 58, 665, 460, 26, 2);
+    drawWrappedText(ctx, data.messageQuote, 58, 730, 460, 24, 3);
+
+    drawBlackFridayPhoto(ctx, photo, 630, 120, 400, Math.min(540, height - 220), 12, showPhoto);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 21px "Montserrat", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(data.callToAction || 'SHOP NOW', 830, height - 160, 360);
+    ctx.font = 'bold 17px "Inter", sans-serif';
+    ctx.fillText(`${data.phone}  ${data.website}`, 830, height - 125, 390);
+  } else {
+    const background = ctx.createLinearGradient(0, 0, width, height);
+    background.addColorStop(0, '#21172D');
+    background.addColorStop(0.48, '#09172C');
+    background.addColorStop(1, '#351A2B');
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = '#D5AA52';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(32, 32, width - 64, height - 64);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px "Montserrat", sans-serif';
+    ctx.fillText(business, width / 2, 112, width - 130);
+    ctx.fillStyle = '#E7C46A';
+    drawFittedText(ctx, heading, width / 2, 285, width - 130, 126, 78, '"Anton", sans-serif', '900', 'center');
+    ctx.fillStyle = '#FFFFFF';
+    drawFittedText(ctx, 'SALE', width / 2, 390, width - 130, 90, 54, '"Anton", sans-serif', '900', 'center');
+    ctx.fillStyle = '#E7C46A';
+    ctx.font = 'bold 20px "Montserrat", sans-serif';
+    ctx.fillText(promo, width / 2, 425, width - 140);
+
+    ctx.fillStyle = '#E6333B';
+    ctx.beginPath();
+    ctx.roundRect(165, 440, width - 330, 165, 14);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    drawFittedText(ctx, discount, width / 2, 548, width - 390, 100, 58, '"Anton", sans-serif', '900', 'center');
+
+    ctx.fillStyle = '#E7C46A';
+    ctx.font = 'bold 29px "Montserrat", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(dates || promo, width / 2, 690, width - 140);
+    ctx.fillStyle = '#FFFFFF';
+    drawFittedText(ctx, title, width / 2, 765, width - 150, 37, 22, '"Montserrat", sans-serif', '900', 'center');
+    ctx.font = '500 19px "Inter", sans-serif';
+    drawWrappedText(ctx, data.messageQuote, width / 2, 820, width - 180, 25, 3, 'center');
+
+    drawBlackFridayPhoto(ctx, photo, width / 2 - 200, 930, 400, 250, 26, showPhoto);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 23px "Montserrat", sans-serif';
+    ctx.fillText(data.callToAction || 'SHOP NOW', width / 2, height - 250, width - 150);
+    ctx.fillStyle = '#E7C46A';
+    ctx.font = 'bold 18px "Inter", sans-serif';
+    ctx.fillText(`${data.phone}  •  ${data.website}`, width / 2, height - 210, width - 130);
+  }
 }
 
 // Draw realistic festive stickers (flower, gift box, gold ribbon, fireworks, lantern, heart, star, holly berry, discount tag)
@@ -609,7 +819,7 @@ export async function exportEventFlyerToDataUrl(
   referralCode: string = 'demo'
 ): Promise<string> {
   const width = 1080;
-  const height = 1080;
+  const height = design.aspectRatio ? Math.round(width / design.aspectRatio) : width;
 
   await ensureFontsLoaded([
     'Anton',
@@ -716,8 +926,39 @@ export async function exportEventFlyerToDataUrl(
     });
   }
 
-  // 2. Render Layout Format
   const layoutFormat = design.layoutFormat || 'circular_portal';
+  if (layoutFormat === 'black_friday') {
+    renderBlackFridayTemplate(ctx, design, data, heroImg, shouldIncludePhoto, width, height);
+    if (hasWatermark) {
+      const watermarkHeight = 100;
+      const watermarkY = height - watermarkHeight;
+      ctx.fillStyle = '#060B12';
+      ctx.fillRect(0, watermarkY, width, watermarkHeight);
+      ctx.fillStyle = '#FBBF24';
+      ctx.fillRect(0, watermarkY, width, 4);
+      const qrData = await QRCode.toDataURL(
+        `https://status-pop.vercel.app/r/${referralCode}?src=qr_event`,
+        { margin: 1, width: 76 }
+      );
+      const qrImage = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Unable to render flyer watermark QR code'));
+        image.src = qrData;
+      });
+      ctx.drawImage(qrImage, 14, watermarkY + 12, 76, 76);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 22px "Inter", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Made with StatusPop', 108, watermarkY + 42);
+      ctx.fillStyle = '#FBBF24';
+      ctx.font = '16px "Inter", sans-serif';
+      ctx.fillText(`status-pop.vercel.app/r/${referralCode}`, 108, watermarkY + 70);
+    }
+    return canvas.toDataURL('image/png', 1);
+  }
+
+  // 2. Render Layout Format
 
   if (layoutFormat === 'custom_studio') {
     // --- FORMAT 5: CUSTOM CANVAS STUDIO (FREEFORM DRAG & DROP) ---
