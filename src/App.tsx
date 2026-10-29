@@ -276,6 +276,7 @@ function MainContent() {
           email?: string;
           plan?: UserPlan;
           planExpiresAt?: string | null;
+          expiresAt?: string | null;
         };
         if (!initialAccount.authenticated) {
           if (new URLSearchParams(window.location.search).has('payment_reference') && !cancelled) {
@@ -291,7 +292,7 @@ function MainContent() {
           setVendor({
             ...accountData.profile,
             plan: initialAccount.plan === 'pro' || initialAccount.plan === 'day_pass' ? initialAccount.plan : 'free',
-            planExpiresAt: initialAccount.planExpiresAt || undefined,
+            planExpiresAt: initialAccount.planExpiresAt || initialAccount.expiresAt || undefined,
           });
           setProducts(accountData.products);
         }
@@ -343,7 +344,7 @@ function MainContent() {
           setVendor((current) => ({
             ...current,
             plan: session.plan === 'pro' || session.plan === 'day_pass' ? session.plan : 'free',
-            planExpiresAt: session.planExpiresAt || undefined,
+            planExpiresAt: session.planExpiresAt || session.expiresAt || undefined,
           }));
         }
       } catch (error) {

@@ -421,7 +421,7 @@ app.get('/api/vendor/session', async (req: Request, res: Response) => {
     }
     const vendorId = user.id;
     const entitlement = await getVendorEntitlement(vendorId);
-    res.json({ authenticated: true, vendorId, email: user.email, ...entitlement, paymentsConfigured: await isPaymentsReady(), authConfigured: true });
+    res.json({ authenticated: true, vendorId, email: user.email, ...entitlement, planExpiresAt: entitlement.expiresAt, paymentsConfigured: await isPaymentsReady(), authConfigured: true });
   } catch (error) {
     console.error('Vendor account lookup failed:', error);
     res.status(503).json({ error: 'account_unavailable', message: 'Could not verify your account status.' });
